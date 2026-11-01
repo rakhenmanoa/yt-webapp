@@ -6,10 +6,10 @@ import QtWebEngine
 
 ApplicationWindow {
     id: win
-    // Sur PC : toute la surface de l'écran (hors barre des tâches), fenêtre
-    // maximisée. Sur le téléphone, le compositeur impose de toute façon la taille.
-    width: backend.desktopDevice ? Screen.desktopAvailableWidth : 420
-    height: backend.desktopDevice ? Screen.desktopAvailableHeight : 860
+    // Sur PC : fenêtre de la taille de l'écran (sa résolution). Sur le
+    // téléphone, le compositeur impose de toute façon la taille.
+    width: backend.desktopDevice ? Screen.width : 420
+    height: backend.desktopDevice ? Screen.height : 860
     title: web.title !== "" ? web.title : "YouTube"
 
     readonly property bool onVideo: backend.isVideoUrl(web.url)
@@ -55,18 +55,11 @@ ApplicationWindow {
     // Plein écran (masque les barres de Plasma Mobile) seulement pour une
     // vidéo en plein écran. Le mode immersif ne masque que la barre de
     // l'appli : les barres du système restent visibles.
-    function showWindowed() {
-        if (backend.desktopDevice)
-            win.showMaximized();
-        else
-            win.showNormal();
-    }
-
     function applyWindowMode() {
         if (web.isFullScreen)
             win.showFullScreen();
         else
-            win.showWindowed();
+            win.showNormal();
     }
 
     function showWindow() {
@@ -216,7 +209,7 @@ ApplicationWindow {
             } else {
                 win.wantLandscape = false;
                 backend.restoreScreenRotation();
-                win.showWindowed();
+                win.showNormal();
             }
         }
 
