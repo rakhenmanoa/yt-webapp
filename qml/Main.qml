@@ -148,6 +148,8 @@ ApplicationWindow {
         onJavaScriptConsoleMessage: function (level, message, lineNumber, sourceID) {
             if (message.startsWith("__ytmpris__"))
                 mpris.update(message.substring(11));
+            else if (message.startsWith("[yt-webapp diag]"))
+                console.warn(message); // visible dans le terminal
         }
 
         // Tout ce qui n'est pas YouTube (ou la connexion Google) part dans le

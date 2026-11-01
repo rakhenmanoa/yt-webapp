@@ -124,7 +124,42 @@
             });
         } catch (e) { /* ignoré */ }
 
+        // Le lecteur de m.youtube.com garde la taille et la position de la
+        // vidéo d'avant le plein écran (styles posés en ligne sur <video>).
+        // Pendant la rotation, on impose donc à la vidéo de remplir l'écran.
+        const LAND = 'ytw-landscape';
+        const landCss =
+            'html.' + LAND + ' :fullscreen video,html.' + LAND + ' :-webkit-full-screen video{' +
+            'position:fixed!important;left:0!important;top:0!important;' +
+            'right:auto!important;bottom:auto!important;margin:0!important;' +
+            'width:100vw!important;height:100vh!important;' +
+            'max-width:none!important;max-height:none!important;' +
+            'transform:none!important;object-fit:contain!important}';
+        const addLandStyle = () => {
+            const st = document.createElement('style');
+            st.textContent = landCss;
+            (document.head || document.documentElement).appendChild(st);
+        };
+        if (document.documentElement) addLandStyle();
+        else document.addEventListener('DOMContentLoaded', addLandStyle, { once: true });
+
+        // Diagnostic affiché dans le terminal (une ligne par rotation).
+        const diag = () => {
+            const fs = document.fullscreenElement;
+            const v = (fs && fs.querySelector('video')) || document.querySelector('video');
+            const r = (el) => { if (!el) return null; const b = el.getBoundingClientRect();
+                return [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)]; };
+            console.info('[yt-webapp diag] ' + JSON.stringify({
+                vp: [innerWidth, innerHeight], dpr: devicePixelRatio,
+                screen: [screen.width, screen.height], o: screen.orientation && screen.orientation.type,
+                fs: fs ? (fs.id || fs.className || fs.tagName) : null, fsRect: r(fs),
+                video: r(v), videoStyle: v ? v.getAttribute('style') : null,
+            }));
+        };
+
         window.__ytwSetLandscape = (on, flip) => {
+            document.documentElement.classList.toggle(LAND, !!on);
+            if (on) setTimeout(diag, 1500);
             forced = on
                 ? (flip ? { type: 'landscape-secondary', angle: 270, legacy: -90 }
                         : { type: 'landscape-primary', angle: 90, legacy: 90 })
