@@ -74,11 +74,13 @@ int main(int argc, char *argv[])
     app.setApplicationName(QStringLiteral("yt-webapp"));
     app.setApplicationDisplayName(QStringLiteral("YouTube"));
     app.setDesktopFileName(QStringLiteral("yt-webapp"));
+    app.setApplicationVersion(QStringLiteral(YTW_VERSION));
     app.setQuitOnLastWindowClosed(false);
 
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("YouTube en appli dédiée (QtWebEngine)"));
     parser.addHelpOption();
+    parser.addVersionOption();
     QCommandLineOption bgOpt(QStringLiteral("background"),
                              QStringLiteral("Démarre caché et précharge YouTube."));
     parser.addOption(bgOpt);
@@ -131,6 +133,7 @@ int main(int argc, char *argv[])
     engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);
     engine.rootContext()->setContextProperty(QStringLiteral("ytProfile"), profile);
     engine.rootContext()->setContextProperty(QStringLiteral("mpris"), &mpris);
+    engine.rootContext()->setContextProperty(QStringLiteral("appVersion"), QStringLiteral(YTW_VERSION));
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));

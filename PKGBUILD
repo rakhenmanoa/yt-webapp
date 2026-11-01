@@ -1,16 +1,20 @@
-# PKGBUILD local : à lancer avec « makepkg -si » dans ce dossier.
+# PKGBUILD local : à lancer avec « makepkg -sif » dans ce dossier
+# (-f force la reconstruction même si un paquet de même version existe déjà).
 pkgname=yt-webapp
-pkgver=0.1.0
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="YouTube en appli dédiée (QtWebEngine), pensée pour Plasma Mobile"
 arch=('aarch64' 'x86_64')
 license=('MIT')
 depends=('qt6-base' 'qt6-declarative' 'qt6-webengine')
-makedepends=('cmake')
+makedepends=('cmake' 'git')
 optdepends=('mpv: bouton « mpv » et lecture externe'
             'yt-dlp: utilisé par mpv pour lire YouTube')
 
 build() {
+  # Repart de zéro à chaque fois : garantit que le code récupéré par
+  # « git pull » est bien celui qui est compilé.
+  rm -rf build
   cmake -B build -S "$startdir" \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release

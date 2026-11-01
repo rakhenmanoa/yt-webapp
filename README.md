@@ -30,7 +30,17 @@ Pour le bouton mpv (facultatif) :
 
 Dans le dossier du projet, compiler et installer le paquet :
 
-    makepkg -si
+    makepkg -sif
+
+L'option `-f` force la reconstruction : sans elle, makepkg réinstalle l'ancien paquet s'il en trouve un de même version dans le dossier.
+
+## Mettre à jour
+
+    git pull
+
+    makepkg -sif
+
+Puis quitte l'ancienne instance (menu → Quitter), sinon la relance réaffiche celle qui tourne encore en mémoire. La version et le commit compilés s'affichent en bas du menu.
 
 ## Préchargement au démarrage (facultatif)
 

@@ -406,6 +406,10 @@ ApplicationWindow {
                         text: "Quitter"
                         onTriggered: backend.quit()
                     }
+                    MenuItem {
+                        text: "Version " + appVersion
+                        enabled: false
+                    }
                 }
             }
         }
