@@ -12,6 +12,9 @@ YouTube en appli dédiée, sur QtWebEngine (Chromium), pensée pour Plasma Mobil
 - **YouTube seulement.** Les liens externes s'ouvrent dans le navigateur par défaut. La connexion Google reste possible.
 - **Bouton « mpv »** sur les vidéos, plus une option « Toujours lire dans mpv » : la page ne télécharge alors plus la vidéo et tout part dans mpv.
 - **Incrustation.** Avec l'option du menu « Incrustation (mpv flottant) », le bouton devient « Incruster » : la vidéo part dans une petite fenêtre mpv sans bordure, gardée au-dessus des autres applis, en bas à droite. Tu peux continuer à naviguer pendant ce temps.
+- **Intégration Plasma (MPRIS).** La vidéo en cours apparaît, avec titre, chaîne, miniature et position, sur l'écran de verrouillage, dans le widget multimédia et dans KDE Connect. On peut la piloter de là, ainsi qu'avec les boutons du casque. C'est le même principe que Plasma Browser Integration, mais intégré à l'appli : pas besoin d'extension ni de programme séparé.
+- **Lecture en arrière-plan.** Fermer la fenêtre ne coupe plus le son : la lecture continue écran éteint et se pilote depuis l'écran de verrouillage. Désactivable dans le menu.
+- **Mode immersif.** Menu → « Mode immersif (masquer les barres) » : l'appli passe en plein écran, ce qui masque les barres de Plasma Mobile en haut et en bas, et sa propre barre disparaît. Une petite poignée ronde en bas à droite l'affiche par-dessus la page ; elle se masque d'elle-même après 5 secondes.
 - **Réglages Chromium par défaut** : 4 threads de peinture, moins de pauses du ramasse-miettes V8, services inutiles coupés.
 
 ## Installation sur le téléphone (Arch Linux ARM)
@@ -50,6 +53,19 @@ Si la position ne convient plus (rotation, changement d'échelle), utilise menu 
 
 Plasma Mobile maximise normalement toutes les fenêtres. La règle force la fenêtre à ne pas l'être, mais selon la version de Plasma Mobile, il faudra peut-être activer le mode « convergence » (fenêtres flottantes) pour que l'incrustation reste petite.
 
+## Intégration Plasma : comment ça marche
+
+1. Le script injecté écoute l'élément `<video>` actif (lecture, pause, position…) et intercepte la Media Session de YouTube, par laquelle la page annonce titre, chaîne, miniature et ses boutons précédent/suivant.
+2. Il transmet l'état à l'appli via la console JavaScript (messages préfixés `__ytmpris__`, masqués du terminal).
+3. L'appli publie un lecteur MPRIS2 sur D-Bus (`org.mpris.MediaPlayer2.ytwebapp`), seulement quand une vidéo est chargée.
+4. Les commandes de Plasma (lecture, pause, avance, volume…) redescendent dans la page.
+
+Le MPRIS générique de Chromium est désactivé (`HardwareMediaKeyHandling`) pour éviter un doublon nommé « Chromium ».
+
+Pour vérifier depuis un terminal du téléphone :
+
+    busctl --user introspect org.mpris.MediaPlayer2.ytwebapp /org/mpris/MediaPlayer2
+
 ## Réglages de performance
 
 L'appli utilise les réglages Chromium par défaut, sauf si la variable `QTWEBENGINE_CHROMIUM_FLAGS` est définie. Pour tester tes propres réglages :
@@ -86,6 +102,7 @@ Puis ouvre `chrome://inspect` dans Chromium sur le PC.
 
 - `src/main.cpp` : démarrage, profil, instance unique, réglages Chromium
 - `src/interceptor.cpp` : blocage des requêtes
-- `src/backend.cpp` : réglages, mpv, liste des domaines autorisés
+- `src/backend.cpp` : réglages, mpv, incrustation, liste des domaines autorisés
+- `src/mpris.cpp` : lecteur MPRIS2 (intégration Plasma)
 - `qml/Main.qml` : interface (vue web, barre du bas, menu)
-- `data/inject.js` : script injecté dans YouTube (H.264, pubs)
+- `data/inject.js` : script injecté dans YouTube (H.264, pubs, arrière-plan, MPRIS)

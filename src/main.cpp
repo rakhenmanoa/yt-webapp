@@ -2,11 +2,13 @@
 
 #include "backend.h"
 #include "interceptor.h"
+#include "mpris.h"
 
 #include <QCommandLineParser>
 #include <QGuiApplication>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QLoggingCategory>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWebEngineProfile>
@@ -18,11 +20,12 @@ namespace {
 // Réglages Chromium par défaut, remplaçables via QTWEBENGINE_CHROMIUM_FLAGS.
 //  --num-raster-threads=4             : plus de cœurs pour peindre la page (défilement)
 //  --js-flags=--max-semi-space-size=32 : moins de pauses du ramasse-miettes V8
-//  --disable-features=...              : services inutiles pour une appli YouTube
+//  --disable-features=...              : services inutiles pour une appli YouTube,
+//                                        et le MPRIS générique de Chromium (on a le nôtre)
 const char kDefaultFlags[] =
     "--num-raster-threads=4 "
     "--js-flags=--max-semi-space-size=32 "
-    "--disable-features=Translate,MediaRouter,OptimizationHints";
+    "--disable-features=Translate,MediaRouter,OptimizationHints,HardwareMediaKeyHandling";
 
 QString socketName()
 {
@@ -62,6 +65,10 @@ int main(int argc, char *argv[])
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultFlags);
 
     QtWebEngineQuick::initialize();
+
+    // Le script injecté parle à l'appli via console.debug : inutile de
+    // l'afficher dans le terminal.
+    QLoggingCategory::setFilterRules(QStringLiteral("js.debug=false"));
 
     QGuiApplication app(argc, argv);
     app.setApplicationName(QStringLiteral("yt-webapp"));
@@ -103,6 +110,10 @@ int main(int argc, char *argv[])
     profile->setUrlRequestInterceptor(interceptor);
 
     Backend backend(interceptor, profile, parser.isSet(bgOpt), startUrl);
+    Mpris mpris;
+    QObject::connect(&mpris, &Mpris::raiseRequested, &backend, [&backend] { backend.activate(QUrl()); });
+    QObject::connect(&mpris, &Mpris::openRequested, &backend, &Backend::activate);
+    QObject::connect(&mpris, &Mpris::quitRequested, &backend, &Backend::quit);
 
     QObject::connect(&server, &QLocalServer::newConnection, &app, [&] {
         while (QLocalSocket *c = server.nextPendingConnection()) {
@@ -119,6 +130,7 @@ int main(int argc, char *argv[])
     QQmlApplicationEngine engine;
     engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);
     engine.rootContext()->setContextProperty(QStringLiteral("ytProfile"), profile);
+    engine.rootContext()->setContextProperty(QStringLiteral("mpris"), &mpris);
     QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));

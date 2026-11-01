@@ -7,11 +7,15 @@ ApplicationWindow {
     id: win
     width: 420
     height: 860
-    visible: !backend.startHidden
     title: web.title !== "" ? web.title : "YouTube"
 
     readonly property bool onVideo: backend.isVideoUrl(web.url)
     property string lastAutoMpvUrl: ""
+
+    // Mode immersif : barre de l'appli masquée, affichée temporairement
+    // par la poignée.
+    property bool barPeek: false
+    readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
     readonly property string pauseJs:
         "document.querySelectorAll('video').forEach(function (v) { v.pause(); });"
@@ -27,6 +31,26 @@ ApplicationWindow {
         web.userScripts.insert(s);
     }
 
+    // Plein écran (masque les barres de Plasma Mobile) en mode immersif ou
+    // pendant une vidéo plein écran.
+    function applyWindowMode() {
+        if (web.isFullScreen || backend.immersive)
+            win.showFullScreen();
+        else
+            win.showNormal();
+    }
+
+    function showWindow() {
+        applyWindowMode();
+        win.raise();
+        win.requestActivate();
+    }
+
+    function peekBar() {
+        barPeek = true;
+        peekTimer.restart();
+    }
+
     function playInMpv(url) {
         web.runJavaScript(pauseJs);
         backend.openInMpv(url);
@@ -38,9 +62,17 @@ ApplicationWindow {
         toastTimer.restart();
     }
 
+    Component.onCompleted: {
+        if (!backend.startHidden)
+            applyWindowMode();
+    }
+
     // Fermeture : on garde l'appli en mémoire (réouverture instantanée).
+    // Avec la lecture en arrière-plan, le son continue et se pilote depuis
+    // Plasma (écran de verrouillage, widget multimédia).
     onClosing: function (close) {
-        web.runJavaScript(pauseJs);
+        if (!backend.keepInMemory || !backend.backgroundPlay)
+            web.runJavaScript(pauseJs);
         if (backend.keepInMemory) {
             close.accepted = false;
             win.hide();
@@ -54,16 +86,28 @@ ApplicationWindow {
         function onShowRequested(url) {
             if (url.toString() !== "")
                 web.url = url;
-            win.show();
-            win.raise();
-            win.requestActivate();
+            win.showWindow();
         }
         function onMessage(text) { win.toast(text); }
     }
 
+    // Commandes MPRIS (Plasma) → page YouTube.
+    Connections {
+        target: mpris
+        function onCommand(action, arg) {
+            web.runJavaScript("window.__ytmprisCmd && window.__ytmprisCmd("
+                              + JSON.stringify(action) + "," + Number(arg) + ");");
+        }
+    }
+
     WebEngineView {
         id: web
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        // En mode immersif, la barre passe par-dessus la page sans la
+        // redimensionner.
+        anchors.bottom: (backend.immersive || !win.barShown) ? parent.bottom : bar.top
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
@@ -74,6 +118,12 @@ ApplicationWindow {
         Component.onCompleted: {
             win.applyScripts();
             web.url = backend.startUrl.toString() !== "" ? backend.startUrl : backend.homeUrl;
+        }
+
+        // Pont page → appli : le script injecté décrit l'état du lecteur.
+        onJavaScriptConsoleMessage: function (level, message, lineNumber, sourceID) {
+            if (message.startsWith("__ytmpris__"))
+                mpris.update(message.substring(11));
         }
 
         // Tout ce qui n'est pas YouTube (ou la connexion Google) part dans le
@@ -98,7 +148,7 @@ ApplicationWindow {
             request.accept();
             if (request.toggleOn)
                 win.showFullScreen();
-            else
+            else if (!backend.immersive)
                 win.showNormal();
         }
 
@@ -114,6 +164,7 @@ ApplicationWindow {
         }
 
         onRenderProcessTerminated: function (status, code) {
+            mpris.update("null");
             reloadTimer.start();
         }
 
@@ -139,8 +190,38 @@ ApplicationWindow {
         onTriggered: web.reload()
     }
 
-    footer: ToolBar {
-        visible: !web.isFullScreen
+    Timer {
+        id: peekTimer
+        interval: 5000
+        onTriggered: {
+            if (!menu.visible)
+                win.barPeek = false;
+        }
+    }
+
+    // Poignée du mode immersif : un tap affiche la barre quelques secondes.
+    RoundButton {
+        id: handle
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: 14
+        width: 44
+        height: 44
+        opacity: 0.45
+        visible: backend.immersive && !win.barShown && !web.isFullScreen
+        icon.name: "go-up"
+        text: "⋯"
+        display: AbstractButton.IconOnly
+        onClicked: win.peekBar()
+    }
+
+    ToolBar {
+        id: bar
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        visible: win.barShown
+
         RowLayout {
             anchors.fill: parent
             spacing: 0
@@ -152,7 +233,7 @@ ApplicationWindow {
                 text: "Retour"
                 display: AbstractButton.TextUnderIcon
                 enabled: web.canGoBack
-                onClicked: web.goBack()
+                onClicked: { web.goBack(); if (win.barPeek) peekTimer.restart(); }
             }
             ToolButton {
                 Layout.fillWidth: true
@@ -160,7 +241,7 @@ ApplicationWindow {
                 icon.name: "go-home"
                 text: "Accueil"
                 display: AbstractButton.TextUnderIcon
-                onClicked: web.url = backend.homeUrl
+                onClicked: { web.url = backend.homeUrl; if (win.barPeek) peekTimer.restart(); }
             }
             ToolButton {
                 Layout.fillWidth: true
@@ -168,7 +249,7 @@ ApplicationWindow {
                 icon.name: web.loading ? "process-stop" : "view-refresh"
                 text: web.loading ? "Arrêter" : "Recharger"
                 display: AbstractButton.TextUnderIcon
-                onClicked: web.loading ? web.stop() : web.reload()
+                onClicked: { web.loading ? web.stop() : web.reload(); if (win.barPeek) peekTimer.restart(); }
             }
             ToolButton {
                 Layout.fillWidth: true
@@ -190,7 +271,29 @@ ApplicationWindow {
                 Menu {
                     id: menu
                     y: -height
+                    onClosed: if (win.barPeek) peekTimer.restart()
 
+                    MenuItem {
+                        text: "Mode immersif (masquer les barres)"
+                        checkable: true
+                        checked: backend.immersive
+                        onToggled: {
+                            backend.immersive = checked;
+                            win.barPeek = false;
+                            win.applyWindowMode();
+                        }
+                    }
+                    MenuItem {
+                        text: "Lecture en arrière-plan"
+                        checkable: true
+                        checked: backend.backgroundPlay
+                        onToggled: {
+                            backend.backgroundPlay = checked;
+                            win.applyScripts();
+                            web.reload();
+                        }
+                    }
+                    MenuSeparator {}
                     MenuItem {
                         text: "Forcer le H.264"
                         checkable: true

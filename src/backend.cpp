@@ -62,6 +62,23 @@ bool Backend::blockAds() const { return m_settings.value(QStringLiteral("blockAd
 bool Backend::autoMpv() const { return m_settings.value(QStringLiteral("autoMpv"), false).toBool(); }
 bool Backend::keepInMemory() const { return m_settings.value(QStringLiteral("keepInMemory"), true).toBool(); }
 int Backend::mpvHeight() const { return m_settings.value(QStringLiteral("mpvHeight"), 720).toInt(); }
+bool Backend::backgroundPlay() const { return m_settings.value(QStringLiteral("backgroundPlay"), true).toBool(); }
+bool Backend::immersive() const { return m_settings.value(QStringLiteral("immersive"), false).toBool(); }
+
+void Backend::setBackgroundPlay(bool v)
+{
+    if (v == backgroundPlay()) return;
+    m_settings.setValue(QStringLiteral("backgroundPlay"), v);
+    emit settingsChanged();
+}
+
+void Backend::setImmersive(bool v)
+{
+    if (v == immersive()) return;
+    m_settings.setValue(QStringLiteral("immersive"), v);
+    emit settingsChanged();
+}
+
 bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
 
 void Backend::setPipMode(bool v)
@@ -119,9 +136,9 @@ void Backend::applyToInterceptor()
 
 QString Backend::injectScript() const
 {
-    return QStringLiteral("window.__ytwebapp = {h264: %1, ads: %2};\n")
-               .arg(forceH264() ? QStringLiteral("true") : QStringLiteral("false"),
-                    blockAds() ? QStringLiteral("true") : QStringLiteral("false"))
+    auto b = [](bool v) { return v ? QStringLiteral("true") : QStringLiteral("false"); };
+    return QStringLiteral("window.__ytwebapp = {h264: %1, ads: %2, mpris: true, bg: %3};\n")
+               .arg(b(forceH264()), b(blockAds()), b(backgroundPlay()))
         + m_scriptTemplate;
 }
 
@@ -309,7 +326,9 @@ void Backend::clearCache()
 
 void Backend::quit()
 {
-    QCoreApplication::quit();
+    // exit() et non quit() : en Qt 6, quit() demande d'abord aux fenêtres de
+    // se fermer, ce que la fenêtre refuse en mode « rester en mémoire ».
+    QCoreApplication::exit(0);
 }
 
 void Backend::activate(const QUrl &url)

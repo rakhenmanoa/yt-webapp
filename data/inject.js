@@ -68,4 +68,150 @@
             if (skip) skip.click();
         }, 500);
     }
+
+    // --- 3. Lecture en arrière-plan -----------------------------------------
+    // m.youtube.com met la vidéo en pause quand la page devient invisible.
+    // On lui fait croire qu'elle reste toujours visible.
+    if (cfg.bg) {
+        const def = (name, value) => {
+            try {
+                Object.defineProperty(Document.prototype, name, {
+                    configurable: true, get: () => value,
+                });
+            } catch (e) { /* ignoré */ }
+        };
+        def('hidden', false);
+        def('webkitHidden', false);
+        def('visibilityState', 'visible');
+        def('webkitVisibilityState', 'visible');
+        for (const t of ['visibilitychange', 'webkitvisibilitychange']) {
+            window.addEventListener(t, (e) => e.stopImmediatePropagation(), true);
+            document.addEventListener(t, (e) => e.stopImmediatePropagation(), true);
+        }
+    }
+
+    // --- 4. Intégration Plasma (MPRIS) ---------------------------------------
+    // Même principe que Plasma Browser Integration : on écoute la Media Session
+    // de YouTube et l'élément <video> actif, et on transmet l'état à l'appli.
+    if (cfg.mpris && window.top === window) {
+        const PFX = '__ytmpris__';
+        const handlers = {};
+        let meta = null;
+        let active = null;
+        let pendingSeeked = false;
+        let timer = 0;
+        let lastSent = '';
+
+        const ms = navigator.mediaSession;
+        if (ms) {
+            const origSet = ms.setActionHandler.bind(ms);
+            ms.setActionHandler = (name, cb) => {
+                handlers[name] = cb;
+                schedule();
+                return origSet(name, cb);
+            };
+            const proto = Object.getPrototypeOf(ms);
+            const md = Object.getOwnPropertyDescriptor(proto, 'metadata');
+            if (md && md.get && md.set) {
+                Object.defineProperty(ms, 'metadata', {
+                    configurable: true,
+                    get: () => md.get.call(ms),
+                    set: (v) => { md.set.call(ms, v); meta = v; schedule(); },
+                });
+            }
+        }
+
+        // Ignore les petits sons (< 8 s), comme Plasma Browser Integration.
+        const isShort = (v) => isFinite(v.duration) && v.duration > 0 && v.duration < 8;
+
+        const videoId = () => {
+            const p = new URLSearchParams(location.search).get('v');
+            if (p) return p;
+            const m = location.pathname.match(/^\/(?:shorts|live)\/([\w-]{11})/);
+            return m ? m[1] : '';
+        };
+
+        const bestArt = (art) => {
+            let best = '', size = -1;
+            for (const a of art || []) {
+                const s = parseInt(String(a.sizes || '0').split(/[x ]/)[0], 10) || 0;
+                if (a.src && s >= size) { best = a.src; size = s; }
+            }
+            return best;
+        };
+
+        function send() {
+            timer = 0;
+            const v = active;
+            if (!v || !v.isConnected) {
+                if (lastSent !== 'null') { console.debug(PFX + 'null'); lastSent = 'null'; }
+                return;
+            }
+            const m = meta || {};
+            const id = videoId();
+            const state = {
+                st: v.ended ? 'Stopped' : v.paused ? 'Paused' : 'Playing',
+                title: m.title || document.title.replace(/ - YouTube$/, ''),
+                artist: m.artist || '',
+                album: m.album || '',
+                art: bestArt(m.artwork) || (id ? 'https://i.ytimg.com/vi/' + id + '/hqdefault.jpg' : ''),
+                url: location.href,
+                dur: isFinite(v.duration) ? v.duration : -1,
+                pos: v.currentTime || 0,
+                rate: v.playbackRate || 1,
+                vol: v.muted ? 0 : v.volume,
+                next: typeof handlers.nexttrack === 'function',
+                prev: true,
+                seek: isFinite(v.duration),
+                seeked: pendingSeeked,
+            };
+            pendingSeeked = false;
+            const msg = JSON.stringify(state);
+            if (msg !== lastSent || state.seeked) {
+                lastSent = msg;
+                console.debug(PFX + msg);
+            }
+        }
+
+        function schedule(seeked) {
+            if (seeked) pendingSeeked = true;
+            if (!timer) timer = setTimeout(send, 150);
+        }
+
+        const onMedia = (e) => {
+            const v = e.target;
+            if (!(v instanceof HTMLMediaElement) || isShort(v)) return;
+            if (v !== active && (e.type === 'play' || e.type === 'playing' || !active)) active = v;
+            if (v === active) schedule(e.type === 'seeked');
+        };
+        for (const t of ['play', 'playing', 'pause', 'ended', 'durationchange', 'seeked',
+                         'ratechange', 'volumechange', 'loadedmetadata', 'emptied']) {
+            document.addEventListener(t, onMedia, true);
+        }
+
+        // Commandes venant de Plasma (via l'appli).
+        window.__ytmprisCmd = (action, x) => {
+            const v = active;
+            const h = (n) => {
+                if (typeof handlers[n] !== 'function') return false;
+                try { handlers[n]({ action: n, seekTime: x, seekOffset: Math.abs(x) }); return true; }
+                catch (e) { return false; }
+            };
+            if (!v && action !== 'next') return;
+            switch (action) {
+            case 'play': if (!h('play')) v.play(); break;
+            case 'pause': if (!h('pause')) v.pause(); break;
+            case 'playpause':
+                if (v.paused) { if (!h('play')) v.play(); } else if (!h('pause')) v.pause();
+                break;
+            case 'stop': if (!h('stop')) v.pause(); break;
+            case 'next': h('nexttrack'); break;
+            case 'previous': if (!h('previoustrack')) v.currentTime = 0; break;
+            case 'seek': v.currentTime = Math.max(0, v.currentTime + x); break;
+            case 'setpos': v.currentTime = Math.max(0, x); break;
+            case 'volume': v.muted = false; v.volume = Math.min(1, Math.max(0, x)); break;
+            case 'rate': v.playbackRate = x; break;
+            }
+        };
+    }
 })();

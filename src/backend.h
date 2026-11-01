@@ -17,6 +17,8 @@ class Backend : public QObject
     Q_PROPERTY(bool keepInMemory READ keepInMemory WRITE setKeepInMemory NOTIFY settingsChanged)
     Q_PROPERTY(int mpvHeight READ mpvHeight WRITE setMpvHeight NOTIFY settingsChanged)
     Q_PROPERTY(bool pipMode READ pipMode WRITE setPipMode NOTIFY settingsChanged)
+    Q_PROPERTY(bool backgroundPlay READ backgroundPlay WRITE setBackgroundPlay NOTIFY settingsChanged)
+    Q_PROPERTY(bool immersive READ immersive WRITE setImmersive NOTIFY settingsChanged)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
@@ -39,6 +41,10 @@ public:
     void setMpvHeight(int v);
     bool pipMode() const;
     void setPipMode(bool v);
+    bool backgroundPlay() const;
+    void setBackgroundPlay(bool v);
+    bool immersive() const;
+    void setImmersive(bool v);
 
     bool mpvAvailable() const { return m_mpvAvailable; }
     bool startHidden() const { return m_startHidden; }

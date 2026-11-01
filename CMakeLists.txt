@@ -17,6 +17,8 @@ add_executable(yt-webapp
   src/backend.h
   src/interceptor.cpp
   src/interceptor.h
+  src/mpris.cpp
+  src/mpris.h
   resources.qrc
 )
 
