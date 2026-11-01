@@ -3,7 +3,7 @@
 # version existe déjà. Il est rangé ici pour que le dossier de travail de
 # makepkg (src/) ne soit pas celui du code de l'appli.
 pkgname=yt-webapp
-pkgver=0.5.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="YouTube en appli dédiée (QtWebEngine), pensée pour Plasma Mobile"
 arch=('aarch64' 'x86_64')

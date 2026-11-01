@@ -22,8 +22,8 @@
 
 namespace {
 
-// SIGTERM/SIGINT/SIGHUP (pkill, fin de session) → sortie propre, pour que
-// l'écran tourné par le paysage auto soit bien remis comme avant.
+// SIGTERM/SIGINT/SIGHUP (pkill, fin de session) → sortie propre de Qt et
+// de Chromium (profil et cache bien enregistrés).
 int g_sigFd[2] = {-1, -1};
 
 void onSignal(int)
@@ -36,7 +36,8 @@ void onSignal(int)
 //  --num-raster-threads=4             : plus de cœurs pour peindre la page (défilement)
 //  --js-flags=--max-semi-space-size=32 : moins de pauses du ramasse-miettes V8
 //  --disable-gpu-memory-buffer-video-frames : pas d'images vidéo « zéro copie »
-//                                        (évitait des images vertes au chargement)
+//                                        (évite l'image verte au chargement et la
+//                                        vidéo décalée en paysage auto)
 //  --disable-features=...              : services inutiles pour une appli YouTube,
 //                                        et le MPRIS générique de Chromium (on a le nôtre)
 const char kDefaultFlags[] =

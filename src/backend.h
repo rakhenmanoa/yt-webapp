@@ -21,8 +21,6 @@ class Backend : public QObject
     Q_PROPERTY(bool immersive READ immersive WRITE setImmersive NOTIFY settingsChanged)
     Q_PROPERTY(bool autoLandscape READ autoLandscape WRITE setAutoLandscape NOTIFY settingsChanged)
     Q_PROPERTY(bool landscapeFlip READ landscapeFlip WRITE setLandscapeFlip NOTIFY settingsChanged)
-    Q_PROPERTY(bool rotateScreen READ rotateScreen WRITE setRotateScreen NOTIFY settingsChanged)
-    Q_PROPERTY(bool screenRotationAvailable READ screenRotationAvailable CONSTANT)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
@@ -32,7 +30,6 @@ class Backend : public QObject
 public:
     Backend(Interceptor *interceptor, QQuickWebEngineProfile *profile,
             bool startHidden, const QUrl &startUrl, QObject *parent = nullptr);
-    ~Backend() override;
 
     bool forceH264() const;
     void setForceH264(bool v);
@@ -54,13 +51,6 @@ public:
     void setAutoLandscape(bool v);
     bool landscapeFlip() const;
     void setLandscapeFlip(bool v);
-    bool rotateScreen() const;
-    void setRotateScreen(bool v);
-    bool screenRotationAvailable() const { return !m_kscreenDoctor.isEmpty(); }
-
-    // Paysage auto par rotation réelle de l'écran (kscreen-doctor).
-    Q_INVOKABLE bool rotateScreenLandscape();
-    Q_INVOKABLE void restoreScreenRotation();
 
     bool mpvAvailable() const { return m_mpvAvailable; }
     bool startHidden() const { return m_startHidden; }
@@ -96,7 +86,4 @@ private:
     bool m_startHidden = false;
     QUrl m_startUrl;
     qint64 m_pipPid = 0;
-    QString m_kscreenDoctor;
-    QString m_rotatedOutput;   // sortie tournée par nous, à restaurer
-    QString m_savedRotation;   // sa rotation d'origine
 };
