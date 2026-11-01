@@ -85,6 +85,7 @@ ApplicationWindow {
     // Avec la lecture en arrière-plan, le son continue et se pilote depuis
     // Plasma (écran de verrouillage, widget multimédia).
     onClosing: function (close) {
+        backend.restoreScreenRotation();
         if (!backend.keepInMemory || !backend.backgroundPlay)
             web.runJavaScript(pauseJs);
         if (backend.keepInMemory) {
@@ -176,11 +177,19 @@ ApplicationWindow {
                 win.showFullScreen();
                 if (backend.autoLandscape) {
                     web.runJavaScript(win.videoSizeJs, function (size) {
-                        win.wantLandscape = !!size && size[0] > size[1];
+                        var landscape = !!size && size[0] > size[1];
+                        if (!landscape || win.width > win.height)
+                            return;
+                        // De préférence : rotation réelle de l'écran (fiable avec
+                        // la vidéo matérielle). Sinon : rotation du contenu.
+                        if (backend.rotateScreen && backend.rotateScreenLandscape())
+                            return;
+                        win.wantLandscape = true;
                     });
                 }
             } else {
                 win.wantLandscape = false;
+                backend.restoreScreenRotation();
                 if (!backend.immersive)
                     win.showNormal();
             }
@@ -323,6 +332,14 @@ ApplicationWindow {
                         checkable: true
                         checked: backend.autoLandscape
                         onToggled: backend.autoLandscape = checked
+                    }
+                    MenuItem {
+                        text: "Tourner l'écran du système"
+                        visible: backend.autoLandscape && backend.screenRotationAvailable
+                        height: visible ? implicitHeight : 0
+                        checkable: true
+                        checked: backend.rotateScreen
+                        onToggled: backend.rotateScreen = checked
                     }
                     MenuItem {
                         text: "Inverser le sens du paysage"

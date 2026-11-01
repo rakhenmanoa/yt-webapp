@@ -13,18 +13,36 @@
 #include <QQmlContext>
 #include <QQuickWebEngineProfile>
 #include <QRegularExpression>
+#include <QSocketNotifier>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 
+#include <csignal>
+#include <sys/socket.h>
+#include <unistd.h>
+
 namespace {
+
+// SIGTERM/SIGINT/SIGHUP (pkill, fin de session) → sortie propre, pour que
+// l'écran tourné par le paysage auto soit bien remis comme avant.
+int g_sigFd[2] = {-1, -1};
+
+void onSignal(int)
+{
+    const char c = 1;
+    [[maybe_unused]] auto n = ::write(g_sigFd[0], &c, 1);
+}
 
 // Réglages Chromium par défaut, remplaçables via QTWEBENGINE_CHROMIUM_FLAGS.
 //  --num-raster-threads=4             : plus de cœurs pour peindre la page (défilement)
 //  --js-flags=--max-semi-space-size=32 : moins de pauses du ramasse-miettes V8
+//  --disable-gpu-memory-buffer-video-frames : pas d'images vidéo « zéro copie »
+//                                        (évitait des images vertes au chargement)
 //  --disable-features=...              : services inutiles pour une appli YouTube,
 //                                        et le MPRIS générique de Chromium (on a le nôtre)
 const char kDefaultFlags[] =
     "--num-raster-threads=4 "
     "--js-flags=--max-semi-space-size=32 "
+    "--disable-gpu-memory-buffer-video-frames "
     "--disable-features=Translate,MediaRouter,OptimizationHints,HardwareMediaKeyHandling";
 
 QString socketName()
@@ -92,6 +110,17 @@ int main(int argc, char *argv[])
 
     if (forwardToRunningInstance(startUrl))
         return 0;
+
+    if (::socketpair(AF_UNIX, SOCK_STREAM, 0, g_sigFd) == 0) {
+        auto *sn = new QSocketNotifier(g_sigFd[1], QSocketNotifier::Read, &app);
+        QObject::connect(sn, &QSocketNotifier::activated, &app, [] {
+            char c;
+            [[maybe_unused]] auto n = ::read(g_sigFd[1], &c, 1);
+            QCoreApplication::exit(0);
+        });
+        for (int sig : {SIGTERM, SIGINT, SIGHUP})
+            std::signal(sig, onSignal);
+    }
 
     QLocalServer::removeServer(socketName());
     QLocalServer server;

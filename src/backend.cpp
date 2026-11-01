@@ -6,6 +6,9 @@
 #include <QDBusMessage>
 #include <QDesktopServices>
 #include <QFile>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QGuiApplication>
 #include <QProcess>
 #include <QQuickWebEngineProfile>
@@ -54,7 +57,14 @@ Backend::Backend(Interceptor *interceptor, QQuickWebEngineProfile *profile,
         m_scriptTemplate = QString::fromUtf8(f.readAll());
 
     m_mpvAvailable = !QStandardPaths::findExecutable(QStringLiteral("mpv")).isEmpty();
+    m_kscreenDoctor = QStandardPaths::findExecutable(QStringLiteral("kscreen-doctor"));
     applyToInterceptor();
+}
+
+Backend::~Backend()
+{
+    // Ne jamais laisser l'écran tourné derrière nous.
+    restoreScreenRotation();
 }
 
 bool Backend::forceH264() const { return m_settings.value(QStringLiteral("forceH264"), true).toBool(); }
@@ -94,6 +104,74 @@ void Backend::setLandscapeFlip(bool v)
     if (v == landscapeFlip()) return;
     m_settings.setValue(QStringLiteral("landscapeFlip"), v);
     emit settingsChanged();
+}
+
+bool Backend::rotateScreen() const { return m_settings.value(QStringLiteral("rotateScreen"), true).toBool(); }
+
+void Backend::setRotateScreen(bool v)
+{
+    if (v == rotateScreen()) return;
+    m_settings.setValue(QStringLiteral("rotateScreen"), v);
+    emit settingsChanged();
+}
+
+namespace {
+QString rotationName(int r)
+{
+    // Valeurs KScreen::Output::Rotation.
+    switch (r) {
+    case 2: return QStringLiteral("left");
+    case 4: return QStringLiteral("inverted");
+    case 8: return QStringLiteral("right");
+    default: return QStringLiteral("normal");
+    }
+}
+} // namespace
+
+bool Backend::rotateScreenLandscape()
+{
+    if (m_kscreenDoctor.isEmpty())
+        return false;
+    if (!m_rotatedOutput.isEmpty())
+        return true; // déjà tourné
+
+    QProcess p;
+    p.start(m_kscreenDoctor, {QStringLiteral("-j")});
+    if (!p.waitForFinished(3000))
+        return false;
+    const QJsonArray outputs = QJsonDocument::fromJson(p.readAllStandardOutput())
+                                   .object().value(QStringLiteral("outputs")).toArray();
+    for (const QJsonValue &v : outputs) {
+        const QJsonObject o = v.toObject();
+        if (!o.value(QStringLiteral("enabled")).toBool()
+            || !o.value(QStringLiteral("connected")).toBool(true))
+            continue;
+        const QString name = o.value(QStringLiteral("name")).toString();
+        const int rot = o.value(QStringLiteral("rotation")).toInt(1);
+        if (name.isEmpty())
+            continue;
+        // Déjà en paysage côté système : rien à faire.
+        if (rot == 2 || rot == 8)
+            return true;
+        const QString target = landscapeFlip() ? QStringLiteral("right") : QStringLiteral("left");
+        const int rc = QProcess::execute(m_kscreenDoctor,
+            {QStringLiteral("output.%1.rotation.%2").arg(name, target)});
+        if (rc != 0)
+            return false;
+        m_rotatedOutput = name;
+        m_savedRotation = rotationName(rot);
+        return true;
+    }
+    return false;
+}
+
+void Backend::restoreScreenRotation()
+{
+    if (m_rotatedOutput.isEmpty() || m_kscreenDoctor.isEmpty())
+        return;
+    QProcess::execute(m_kscreenDoctor,
+        {QStringLiteral("output.%1.rotation.%2").arg(m_rotatedOutput, m_savedRotation)});
+    m_rotatedOutput.clear();
 }
 
 bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
