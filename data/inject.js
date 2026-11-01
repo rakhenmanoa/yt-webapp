@@ -134,7 +134,9 @@
             'right:auto!important;bottom:auto!important;margin:0!important;' +
             'width:100vw!important;height:100vh!important;' +
             'max-width:none!important;max-height:none!important;' +
-            'transform:none!important;object-fit:contain!important}';
+            'transform:none!important;object-fit:contain!important;' +
+            'object-position:50% 50%!important;translate:none!important;' +
+            'scale:none!important;rotate:none!important}';
         const addLandStyle = () => {
             const st = document.createElement('style');
             st.textContent = landCss;
@@ -154,6 +156,8 @@
                 screen: [screen.width, screen.height], o: screen.orientation && screen.orientation.type,
                 fs: fs ? (fs.id || fs.className || fs.tagName) : null, fsRect: r(fs),
                 video: r(v), videoStyle: v ? v.getAttribute('style') : null,
+                objPos: v ? getComputedStyle(v).objectPosition : null,
+                natural: v ? [v.videoWidth, v.videoHeight] : null,
             }));
         };
 

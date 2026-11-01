@@ -128,7 +128,10 @@ ApplicationWindow {
 
     WebEngineView {
         id: web
-        anchors.centerIn: parent
+        // Position arrondie : centrer une vue pivotée tombe souvent sur un
+        // demi-pixel.
+        x: Math.round((parent.width - width) / 2)
+        y: Math.round((parent.height - height) / 2)
         width: win.rotated ? parent.height : parent.width
         height: win.rotated ? parent.width : parent.height
         rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
