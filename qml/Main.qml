@@ -17,20 +17,6 @@ ApplicationWindow {
     property bool barPeek: false
     readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
-    // Paysage automatique : en plein écran, une vidéo paysage regardée avec le
-    // téléphone en portrait fait pivoter le contenu de l'appli de 90°.
-    // (Sous Wayland, une appli ne peut pas tourner l'écran du système.)
-    property bool wantLandscape: false
-    readonly property bool rotated: wantLandscape && web.isFullScreen && win.height > win.width
-
-    readonly property string videoSizeJs:
-        "(function () {" +
-        "  var f = document.fullscreenElement || document.webkitFullscreenElement;" +
-        "  var v = f && (f.tagName === 'VIDEO' ? f : f.querySelector('video'));" +
-        "  v = v || document.querySelector('video');" +
-        "  return v ? [v.videoWidth, v.videoHeight] : null;" +
-        "})()"
-
     readonly property string pauseJs:
         "document.querySelectorAll('video').forEach(function (v) { v.pause(); });"
 
@@ -125,15 +111,9 @@ ApplicationWindow {
 
     WebEngineView {
         id: web
-        anchors.centerIn: parent
-        width: win.rotated ? parent.height : parent.width
-        height: win.rotated ? parent.width : parent.height
-        rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
-        // En rendu matériel, la vidéo peut être une couche à part qui ne suit
-        // pas la rotation (vidéo décalée, commandes bien placées). On compose
-        // donc toute la page dans une texture, puis on fait pivoter celle-ci
-        // d'un bloc. Seulement pendant la rotation (coût : une copie GPU).
-        layer.enabled: win.rotated
+        // Le paysage auto se fait dans la page (CSS, voir inject.js) : la vue
+        // Qt ne pivote jamais, ce qui décalait la vidéo de Chromium.
+        anchors.fill: parent
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
@@ -174,13 +154,7 @@ ApplicationWindow {
             request.accept();
             if (request.toggleOn) {
                 win.showFullScreen();
-                if (backend.autoLandscape) {
-                    web.runJavaScript(win.videoSizeJs, function (size) {
-                        win.wantLandscape = !!size && size[0] > size[1];
-                    });
-                }
             } else {
-                win.wantLandscape = false;
                 if (!backend.immersive)
                     win.showNormal();
             }
@@ -322,7 +296,11 @@ ApplicationWindow {
                         text: "Paysage auto en plein écran"
                         checkable: true
                         checked: backend.autoLandscape
-                        onToggled: backend.autoLandscape = checked
+                        onToggled: {
+                            backend.autoLandscape = checked;
+                            win.applyScripts();
+                            web.reload();
+                        }
                     }
                     MenuItem {
                         text: "Inverser le sens du paysage"
@@ -330,7 +308,11 @@ ApplicationWindow {
                         height: visible ? implicitHeight : 0
                         checkable: true
                         checked: backend.landscapeFlip
-                        onToggled: backend.landscapeFlip = checked
+                        onToggled: {
+                            backend.landscapeFlip = checked;
+                            win.applyScripts();
+                            web.reload();
+                        }
                     }
                     MenuItem {
                         text: "Lecture en arrière-plan"

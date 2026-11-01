@@ -35,15 +35,11 @@ void onSignal(int)
 // Réglages Chromium par défaut, remplaçables via QTWEBENGINE_CHROMIUM_FLAGS.
 //  --num-raster-threads=4             : plus de cœurs pour peindre la page (défilement)
 //  --js-flags=--max-semi-space-size=32 : moins de pauses du ramasse-miettes V8
-//  --disable-gpu-memory-buffer-video-frames : pas d'images vidéo « zéro copie »
-//                                        (évite l'image verte au chargement et la
-//                                        vidéo décalée en paysage auto)
 //  --disable-features=...              : services inutiles pour une appli YouTube,
 //                                        et le MPRIS générique de Chromium (on a le nôtre)
 const char kDefaultFlags[] =
     "--num-raster-threads=4 "
     "--js-flags=--max-semi-space-size=32 "
-    "--disable-gpu-memory-buffer-video-frames "
     "--disable-features=Translate,MediaRouter,OptimizationHints,HardwareMediaKeyHandling";
 
 QString socketName()

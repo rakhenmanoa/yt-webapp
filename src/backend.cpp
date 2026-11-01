@@ -154,8 +154,10 @@ void Backend::applyToInterceptor()
 QString Backend::injectScript() const
 {
     auto b = [](bool v) { return v ? QStringLiteral("true") : QStringLiteral("false"); };
-    return QStringLiteral("window.__ytwebapp = {h264: %1, ads: %2, mpris: true, bg: %3};\n")
-               .arg(b(forceH264()), b(blockAds()), b(backgroundPlay()))
+    return QStringLiteral("window.__ytwebapp = {h264: %1, ads: %2, mpris: true, bg: %3, "
+                          "landscape: %4, flip: %5};\n")
+               .arg(b(forceH264()), b(blockAds()), b(backgroundPlay()),
+                    b(autoLandscape()), b(landscapeFlip()))
         + m_scriptTemplate;
 }
 

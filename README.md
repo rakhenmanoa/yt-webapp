@@ -15,7 +15,7 @@ YouTube en appli dédiée, sur QtWebEngine (Chromium), pensée pour Plasma Mobil
 - **Intégration Plasma (MPRIS).** La vidéo en cours apparaît, avec titre, chaîne, miniature et position, sur l'écran de verrouillage, dans le widget multimédia et dans KDE Connect. On peut la piloter de là, ainsi qu'avec les boutons du casque. C'est le même principe que Plasma Browser Integration, mais intégré à l'appli : pas besoin d'extension ni de programme séparé.
 - **Lecture en arrière-plan.** Fermer la fenêtre ne coupe plus le son : la lecture continue écran éteint et se pilote depuis l'écran de verrouillage. Désactivable dans le menu.
 - **Mode immersif.** Menu → « Mode immersif (masquer les barres) » : l'appli passe en plein écran, ce qui masque les barres de Plasma Mobile en haut et en bas, et sa propre barre disparaît. Une petite poignée ronde en bas à droite l'affiche par-dessus la page ; elle se masque d'elle-même après 5 secondes.
-- **Paysage auto en plein écran.** Quand une vidéo paysage passe en plein écran alors que le téléphone est en portrait, l'appli fait pivoter son contenu de 90°. Il suffit de tourner le téléphone. Les vidéos verticales (Shorts) ne pivotent pas, et rien ne pivote si le téléphone est déjà en paysage. Si le sens ne te convient pas : menu → « Inverser le sens du paysage ». Sous Wayland, une appli ne peut pas tourner l'écran du système : c'est donc le contenu qui pivote, sans interférer avec la rotation automatique de Plasma.
+- **Paysage auto en plein écran.** Quand une vidéo paysage passe en plein écran alors que le téléphone est en portrait, le lecteur pivote de 90°. Il suffit de tourner le téléphone. Les vidéos verticales (Shorts) ne pivotent pas, et rien ne pivote si le téléphone est déjà en paysage. Si le sens ne te convient pas : menu → « Inverser le sens du paysage ». La rotation se fait dans la page, en CSS : Chromium garde une vue portrait et fait pivoter la vidéo lui-même. Faire pivoter la vue Qt décalait l'image de la vidéo.
 - **Réglages Chromium par défaut** : 4 threads de peinture, moins de pauses du ramasse-miettes V8, services inutiles coupés.
 
 ## Installation sur le téléphone (Arch Linux ARM)
@@ -122,4 +122,4 @@ Puis ouvre `chrome://inspect` dans Chromium sur le PC.
 - `src/backend.cpp` : réglages, mpv, incrustation, liste des domaines autorisés
 - `src/mpris.cpp` : lecteur MPRIS2 (intégration Plasma)
 - `qml/Main.qml` : interface (vue web, barre du bas, menu)
-- `data/inject.js` : script injecté dans YouTube (H.264, pubs, arrière-plan, MPRIS)
+- `data/inject.js` : script injecté dans YouTube (H.264, pubs, arrière-plan, paysage auto, MPRIS)
