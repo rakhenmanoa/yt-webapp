@@ -49,8 +49,11 @@ ApplicationWindow {
 
     // Plein écran (masque les barres de Plasma Mobile) en mode immersif ou
     // pendant une vidéo plein écran.
+    // Plein écran (masque les barres de Plasma Mobile) seulement pour une
+    // vidéo en plein écran. Le mode immersif ne masque que la barre de
+    // l'appli : les barres du système restent visibles.
     function applyWindowMode() {
-        if (web.isFullScreen || backend.immersive)
+        if (web.isFullScreen)
             win.showFullScreen();
         else
             win.showNormal();
@@ -203,8 +206,7 @@ ApplicationWindow {
             } else {
                 win.wantLandscape = false;
                 backend.restoreScreenRotation();
-                if (!backend.immersive)
-                    win.showNormal();
+                win.showNormal();
             }
         }
 
@@ -360,7 +362,7 @@ ApplicationWindow {
                     }
                     MenuSeparator {}
                     MenuItem {
-                        text: "Mode immersif (masquer les barres)"
+                        text: "Mode immersif (masquer la barre de l'appli)"
                         checkable: true
                         checked: backend.immersive
                         onToggled: {
