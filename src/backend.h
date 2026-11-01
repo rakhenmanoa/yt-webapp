@@ -19,6 +19,8 @@ class Backend : public QObject
     Q_PROPERTY(bool pipMode READ pipMode WRITE setPipMode NOTIFY settingsChanged)
     Q_PROPERTY(bool backgroundPlay READ backgroundPlay WRITE setBackgroundPlay NOTIFY settingsChanged)
     Q_PROPERTY(bool immersive READ immersive WRITE setImmersive NOTIFY settingsChanged)
+    Q_PROPERTY(bool autoLandscape READ autoLandscape WRITE setAutoLandscape NOTIFY settingsChanged)
+    Q_PROPERTY(bool landscapeFlip READ landscapeFlip WRITE setLandscapeFlip NOTIFY settingsChanged)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
@@ -45,6 +47,10 @@ public:
     void setBackgroundPlay(bool v);
     bool immersive() const;
     void setImmersive(bool v);
+    bool autoLandscape() const;
+    void setAutoLandscape(bool v);
+    bool landscapeFlip() const;
+    void setLandscapeFlip(bool v);
 
     bool mpvAvailable() const { return m_mpvAvailable; }
     bool startHidden() const { return m_startHidden; }

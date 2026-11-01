@@ -79,6 +79,23 @@ void Backend::setImmersive(bool v)
     emit settingsChanged();
 }
 
+bool Backend::autoLandscape() const { return m_settings.value(QStringLiteral("autoLandscape"), true).toBool(); }
+bool Backend::landscapeFlip() const { return m_settings.value(QStringLiteral("landscapeFlip"), false).toBool(); }
+
+void Backend::setAutoLandscape(bool v)
+{
+    if (v == autoLandscape()) return;
+    m_settings.setValue(QStringLiteral("autoLandscape"), v);
+    emit settingsChanged();
+}
+
+void Backend::setLandscapeFlip(bool v)
+{
+    if (v == landscapeFlip()) return;
+    m_settings.setValue(QStringLiteral("landscapeFlip"), v);
+    emit settingsChanged();
+}
+
 bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
 
 void Backend::setPipMode(bool v)

@@ -17,6 +17,20 @@ ApplicationWindow {
     property bool barPeek: false
     readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
+    // Paysage automatique : en plein écran, une vidéo paysage regardée avec le
+    // téléphone en portrait fait pivoter le contenu de l'appli de 90°.
+    // (Sous Wayland, une appli ne peut pas tourner l'écran du système.)
+    property bool wantLandscape: false
+    readonly property bool rotated: wantLandscape && web.isFullScreen && win.height > win.width
+
+    readonly property string videoSizeJs:
+        "(function () {" +
+        "  var f = document.fullscreenElement || document.webkitFullscreenElement;" +
+        "  var v = f && (f.tagName === 'VIDEO' ? f : f.querySelector('video'));" +
+        "  v = v || document.querySelector('video');" +
+        "  return v ? [v.videoWidth, v.videoHeight] : null;" +
+        "})()"
+
     readonly property string pauseJs:
         "document.querySelectorAll('video').forEach(function (v) { v.pause(); });"
 
@@ -100,14 +114,21 @@ ApplicationWindow {
         }
     }
 
-    WebEngineView {
-        id: web
+    Item {
+        id: stage
         anchors.top: parent.top
         anchors.left: parent.left
         anchors.right: parent.right
         // En mode immersif, la barre passe par-dessus la page sans la
         // redimensionner.
         anchors.bottom: (backend.immersive || !win.barShown) ? parent.bottom : bar.top
+
+    WebEngineView {
+        id: web
+        anchors.centerIn: parent
+        width: win.rotated ? parent.height : parent.width
+        height: win.rotated ? parent.width : parent.height
+        rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
@@ -146,10 +167,18 @@ ApplicationWindow {
 
         onFullScreenRequested: function (request) {
             request.accept();
-            if (request.toggleOn)
+            if (request.toggleOn) {
                 win.showFullScreen();
-            else if (!backend.immersive)
-                win.showNormal();
+                if (backend.autoLandscape) {
+                    web.runJavaScript(win.videoSizeJs, function (size) {
+                        win.wantLandscape = !!size && size[0] > size[1];
+                    });
+                }
+            } else {
+                win.wantLandscape = false;
+                if (!backend.immersive)
+                    win.showNormal();
+            }
         }
 
         // YouTube navigue sans recharger la page : on suit l'URL.
@@ -172,6 +201,7 @@ ApplicationWindow {
             if (web.isFullScreen)
                 web.triggerWebAction(WebEngineView.ExitFullScreen);
         }
+    }
     }
 
     // Barre de chargement fine en haut.
@@ -282,6 +312,20 @@ ApplicationWindow {
                             win.barPeek = false;
                             win.applyWindowMode();
                         }
+                    }
+                    MenuItem {
+                        text: "Paysage auto en plein écran"
+                        checkable: true
+                        checked: backend.autoLandscape
+                        onToggled: backend.autoLandscape = checked
+                    }
+                    MenuItem {
+                        text: "Inverser le sens du paysage"
+                        visible: backend.autoLandscape
+                        height: visible ? implicitHeight : 0
+                        checkable: true
+                        checked: backend.landscapeFlip
+                        onToggled: backend.landscapeFlip = checked
                     }
                     MenuItem {
                         text: "Lecture en arrière-plan"
