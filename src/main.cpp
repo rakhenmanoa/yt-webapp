@@ -12,7 +12,9 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickWebEngineProfile>
+#include <QProcess>
 #include <QRegularExpression>
+#include <QSettings>
 #include <QSocketNotifier>
 #include <QtWebEngineQuick/qtwebenginequickglobal.h>
 
@@ -76,8 +78,17 @@ QString mobileUserAgent(const QString &defaultUa)
 
 int main(int argc, char *argv[])
 {
-    if (qEnvironmentVariableIsEmpty("QTWEBENGINE_CHROMIUM_FLAGS"))
-        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultFlags);
+    const bool ownFlags = qEnvironmentVariableIsEmpty("QTWEBENGINE_CHROMIUM_FLAGS");
+    if (ownFlags) {
+        QByteArray flags(kDefaultFlags);
+        // Composition logicielle (option du menu) : sur le téléphone, la
+        // composition GPU de la vidéo par Chromium affiche une image verte
+        // au démarrage de chaque vidéo. Lu avant le démarrage de Chromium.
+        if (QSettings(QStringLiteral("yt-webapp"), QStringLiteral("yt-webapp"))
+                .value(QStringLiteral("softwareCompositing"), false).toBool())
+            flags += " --disable-gpu-compositing";
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", flags);
+    }
 
     QtWebEngineQuick::initialize();
 
@@ -164,5 +175,19 @@ int main(int argc, char *argv[])
                      [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
 
-    return app.exec();
+    const int rc = app.exec();
+
+    // Redémarrage demandé (réglage qui ne s'applique qu'au lancement).
+    if (backend.restartRequested()) {
+        server.close(); // sinon la nouvelle instance nous redonnerait la main
+        QProcess p;
+        p.setProgram(QCoreApplication::applicationFilePath());
+        // Nos réglages Chromium seront recalculés par la nouvelle instance.
+        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+        if (ownFlags)
+            env.remove(QStringLiteral("QTWEBENGINE_CHROMIUM_FLAGS"));
+        p.setProcessEnvironment(env);
+        p.startDetached();
+    }
+    return rc;
 }

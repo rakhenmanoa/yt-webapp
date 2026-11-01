@@ -410,6 +410,25 @@ void Backend::clearCache()
     emit message(tr("Cache vidé."));
 }
 
+bool Backend::softwareCompositing() const
+{
+    return m_settings.value(QStringLiteral("softwareCompositing"), false).toBool();
+}
+
+void Backend::setSoftwareCompositing(bool v)
+{
+    if (v == softwareCompositing()) return;
+    m_settings.setValue(QStringLiteral("softwareCompositing"), v);
+    m_settings.sync();
+    emit settingsChanged();
+}
+
+void Backend::restart()
+{
+    m_restart = true;
+    QCoreApplication::exit(0);
+}
+
 void Backend::quit()
 {
     // exit() et non quit() : en Qt 6, quit() demande d'abord aux fenêtres de

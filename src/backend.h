@@ -22,6 +22,7 @@ class Backend : public QObject
     Q_PROPERTY(bool autoLandscape READ autoLandscape WRITE setAutoLandscape NOTIFY settingsChanged)
     Q_PROPERTY(bool landscapeFlip READ landscapeFlip WRITE setLandscapeFlip NOTIFY settingsChanged)
     Q_PROPERTY(bool screenRotationAvailable READ screenRotationAvailable CONSTANT)
+    Q_PROPERTY(bool softwareCompositing READ softwareCompositing WRITE setSoftwareCompositing NOTIFY settingsChanged)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
@@ -73,6 +74,10 @@ public:
     Q_INVOKABLE void openExternally(const QUrl &url);
     Q_INVOKABLE void clearCache();
     Q_INVOKABLE void quit();
+    Q_INVOKABLE void restart();
+    bool restartRequested() const { return m_restart; }
+    bool softwareCompositing() const;
+    void setSoftwareCompositing(bool v);
 
     // Appelé par l'instance unique quand l'appli est relancée.
     void activate(const QUrl &url);
@@ -94,6 +99,7 @@ private:
     bool m_startHidden = false;
     QUrl m_startUrl;
     qint64 m_pipPid = 0;
+    bool m_restart = false;
     QString m_kscreenDoctor;
     QString m_rotatedOutput;   // sortie tournée par nous, à restaurer
     QString m_savedRotation;   // sa rotation d'origine

@@ -300,6 +300,7 @@ ApplicationWindow {
                 Menu {
                     id: menu
                     y: -height
+                    width: Math.min(win.width - 16, 340)
                     onClosed: if (win.barPeek) peekTimer.restart()
 
                     MenuItem {
@@ -396,6 +397,15 @@ ApplicationWindow {
                             }
                         }
                     }
+                    MenuItem {
+                        text: "Rendu logiciel (anti-image verte)"
+                        checkable: true
+                        checked: backend.softwareCompositing
+                        onToggled: {
+                            backend.softwareCompositing = checked;
+                            restartDialog.open();
+                        }
+                    }
                     MenuSeparator {}
                     MenuItem {
                         text: "Vider le cache"
@@ -412,6 +422,29 @@ ApplicationWindow {
                 }
             }
         }
+    }
+
+    Dialog {
+        id: restartDialog
+        anchors.centerIn: parent
+        modal: true
+        title: "Redémarrer l'appli ?"
+        Label {
+            width: Math.min(win.width - 80, 320)
+            wrapMode: Text.WordWrap
+            text: "Ce réglage s'applique au prochain lancement."
+        }
+        footer: DialogButtonBox {
+            Button {
+                text: "Redémarrer"
+                DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole
+            }
+            Button {
+                text: "Plus tard"
+                DialogButtonBox.buttonRole: DialogButtonBox.RejectRole
+            }
+        }
+        onAccepted: backend.restart()
     }
 
     Popup {
