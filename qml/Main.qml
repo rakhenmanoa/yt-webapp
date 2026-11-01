@@ -15,6 +15,12 @@ ApplicationWindow {
     // Mode immersif : barre de l'appli masquée, affichée temporairement
     // par la poignée.
     property bool barPeek: false
+
+    // Paysage auto par rotation du contenu : seulement en rendu logiciel. Avec
+    // la composition GPU de Chromium, toute rotation de la vue décale la vidéo ;
+    // on tourne alors l'écran du système (kscreen-doctor).
+    property bool wantLandscape: false
+    readonly property bool rotated: wantLandscape && web.isFullScreen && win.height > win.width
     readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
     readonly property string videoSizeJs:
@@ -120,9 +126,10 @@ ApplicationWindow {
 
     WebEngineView {
         id: web
-        // La vue ne pivote jamais : toute transformation (Qt ou CSS) décale la
-        // vidéo de Chromium. Le paysage auto tourne l'écran du système.
-        anchors.fill: parent
+        anchors.centerIn: parent
+        width: win.rotated ? parent.height : parent.width
+        height: win.rotated ? parent.width : parent.height
+        rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
@@ -167,6 +174,10 @@ ApplicationWindow {
                     web.runJavaScript(win.videoSizeJs, function (size) {
                         if (!size || size[0] <= size[1])
                             return;
+                        if (backend.softwareCompositingActive) {
+                            win.wantLandscape = true;
+                            return;
+                        }
                         if (!backend.rotateScreenLandscape())
                             win.toast(backend.screenRotationAvailable
                                       ? "Rotation de l'écran impossible."
@@ -174,6 +185,7 @@ ApplicationWindow {
                     });
                 }
             } else {
+                win.wantLandscape = false;
                 backend.restoreScreenRotation();
                 if (!backend.immersive)
                     win.showNormal();

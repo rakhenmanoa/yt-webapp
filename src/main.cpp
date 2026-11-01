@@ -149,6 +149,11 @@ int main(int argc, char *argv[])
     profile->setUrlRequestInterceptor(interceptor);
 
     Backend backend(interceptor, profile, parser.isSet(bgOpt), startUrl);
+    {
+        const QByteArray f = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
+        backend.setSoftwareCompositingActive(f.contains("--disable-gpu-compositing")
+                                             || f.split(' ').contains("--disable-gpu"));
+    }
     Mpris mpris;
     QObject::connect(&mpris, &Mpris::raiseRequested, &backend, [&backend] { backend.activate(QUrl()); });
     QObject::connect(&mpris, &Mpris::openRequested, &backend, &Backend::activate);
