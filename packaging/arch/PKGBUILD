@@ -1,5 +1,7 @@
 # PKGBUILD local : à lancer avec « makepkg -sif » dans ce dossier
-# (-f force la reconstruction même si un paquet de même version existe déjà).
+# (packaging/arch). -f force la reconstruction même si un paquet de même
+# version existe déjà. Il est rangé ici pour que le dossier de travail de
+# makepkg (src/) ne soit pas celui du code de l'appli.
 pkgname=yt-webapp
 pkgver=0.4.0
 pkgrel=1
@@ -15,7 +17,7 @@ build() {
   # Repart de zéro à chaque fois : garantit que le code récupéré par
   # « git pull » est bien celui qui est compilé.
   rm -rf build
-  cmake -B build -S "$startdir" \
+  cmake -B build -S "$startdir/../.." \
     -DCMAKE_INSTALL_PREFIX=/usr \
     -DCMAKE_BUILD_TYPE=Release
   cmake --build build

@@ -28,13 +28,19 @@ Pour le bouton mpv (facultatif) :
 
     sudo pacman -S --needed mpv yt-dlp
 
-Dans le dossier du projet, compiler et installer le paquet :
+Aller dans le dossier du paquet :
+
+    cd packaging/arch
+
+Compiler et installer :
 
     makepkg -sif
 
 L'option `-f` force la reconstruction : sans elle, makepkg réinstalle l'ancien paquet s'il en trouve un de même version dans le dossier.
 
 ## Mettre à jour
+
+Depuis le dossier `packaging/arch` :
 
     git pull
 
