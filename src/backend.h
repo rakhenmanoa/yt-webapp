@@ -28,7 +28,10 @@ class Backend : public QObject
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
-    Q_PROPERTY(QUrl homeUrl READ homeUrl CONSTANT)
+    Q_PROPERTY(QUrl homeUrl READ homeUrl NOTIFY settingsChanged)
+    Q_PROPERTY(bool desktopMode READ desktopMode WRITE setDesktopMode NOTIFY settingsChanged)
+    Q_PROPERTY(double zoom READ zoom WRITE setZoom NOTIFY settingsChanged)
+    Q_PROPERTY(bool desktopDevice READ desktopDevice CONSTANT)
     Q_PROPERTY(QString injectScript READ injectScript NOTIFY settingsChanged)
 
 public:
@@ -68,7 +71,18 @@ public:
     bool mpvAvailable() const { return m_mpvAvailable; }
     bool startHidden() const { return m_startHidden; }
     QUrl startUrl() const { return m_startUrl; }
-    QUrl homeUrl() const { return QUrl(QStringLiteral("https://m.youtube.com/")); }
+    QUrl homeUrl() const;
+
+    // Version ordinateur (www.youtube.com) ou mobile (m.youtube.com).
+    bool desktopMode() const;
+    void setDesktopMode(bool v);
+    double zoom() const;
+    void setZoom(double v);
+    // PC (x86_64) : version ordinateur et grande fenêtre par défaut.
+    bool desktopDevice() const;
+    void setDefaultUserAgent(const QString &ua);
+    // Même page dans l'autre version (m. <-> www.).
+    Q_INVOKABLE QUrl convertUrl(const QUrl &url) const;
     QString injectScript() const;
 
     Q_INVOKABLE bool isAllowedUrl(const QUrl &url) const;
@@ -107,6 +121,8 @@ private:
     QUrl m_startUrl;
     qint64 m_pipPid = 0;
     bool m_restart = false;
+    QString m_defaultUserAgent;
+    void applyUserAgent();
     bool m_softwareActive = false;
     QString m_kscreenDoctor;
     QString m_rotatedOutput;   // sortie tournée par nous, à restaurer

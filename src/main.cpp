@@ -62,18 +62,6 @@ bool forwardToRunningInstance(const QUrl &url)
     return true;
 }
 
-QString mobileUserAgent(const QString &defaultUa)
-{
-    // Réutilise la vraie version de Chromium embarquée, avec un UA Android
-    // pour que YouTube serve m.youtube.com (interface tactile, plus légère).
-    QString major = QStringLiteral("140");
-    const auto m = QRegularExpression(QStringLiteral("Chrome/(\\d+)")).match(defaultUa);
-    if (m.hasMatch())
-        major = m.captured(1);
-    return QStringLiteral("Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 "
-                          "(KHTML, like Gecko) Chrome/%1.0.0.0 Mobile Safari/537.36").arg(major);
-}
-
 } // namespace
 
 int main(int argc, char *argv[])
@@ -143,12 +131,13 @@ int main(int argc, char *argv[])
     profile->setHttpCacheType(QQuickWebEngineProfile::DiskHttpCache);
     profile->setHttpCacheMaximumSize(512 * 1024 * 1024);
     profile->setPersistentCookiesPolicy(QQuickWebEngineProfile::ForcePersistentCookies);
-    profile->setHttpUserAgent(mobileUserAgent(profile->httpUserAgent()));
+    const QString defaultUserAgent = profile->httpUserAgent();
 
     auto *interceptor = new Interceptor(&app);
     profile->setUrlRequestInterceptor(interceptor);
 
     Backend backend(interceptor, profile, parser.isSet(bgOpt), startUrl);
+    backend.setDefaultUserAgent(defaultUserAgent); // applique l'UA mobile ou ordinateur
     {
         const QByteArray f = qgetenv("QTWEBENGINE_CHROMIUM_FLAGS");
         backend.setSoftwareCompositingActive(f.contains("--disable-gpu-compositing")

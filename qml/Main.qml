@@ -5,8 +5,8 @@ import QtWebEngine
 
 ApplicationWindow {
     id: win
-    width: 420
-    height: 860
+    width: backend.desktopDevice ? 1200 : 420
+    height: backend.desktopDevice ? 800 : 860
     title: web.title !== "" ? web.title : "YouTube"
 
     readonly property bool onVideo: backend.isVideoUrl(web.url)
@@ -102,7 +102,7 @@ ApplicationWindow {
         target: backend
         function onShowRequested(url) {
             if (url.toString() !== "")
-                web.url = url;
+                web.url = backend.convertUrl(url);
             win.showWindow();
         }
         function onMessage(text) { win.toast(text); }
@@ -136,6 +136,12 @@ ApplicationWindow {
         height: win.rotated ? parent.width : parent.height
         rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
         profile: ytProfile
+        zoomFactor: backend.zoom
+        // Chromium peut remettre le zoom à 100 % en changeant de site.
+        onLoadingChanged: function (info) {
+            if (web.zoomFactor !== backend.zoom)
+                web.zoomFactor = backend.zoom;
+        }
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
         settings.webGLEnabled: false
@@ -144,7 +150,8 @@ ApplicationWindow {
 
         Component.onCompleted: {
             win.applyScripts();
-            web.url = backend.startUrl.toString() !== "" ? backend.startUrl : backend.homeUrl;
+            web.url = backend.startUrl.toString() !== "" ? backend.convertUrl(backend.startUrl)
+                                                          : backend.homeUrl;
         }
 
         // Pont page → appli : le script injecté décrit l'état du lecteur.
@@ -324,6 +331,34 @@ ApplicationWindow {
                     width: Math.min(win.width - 16, 340)
                     onClosed: if (win.barPeek) peekTimer.restart()
 
+                    MenuItem {
+                        text: "Version ordinateur"
+                        checkable: true
+                        checked: backend.desktopMode
+                        onToggled: {
+                            backend.desktopMode = checked;
+                            // Sur un écran étroit, la version ordinateur est
+                            // illisible à 100 % : on dézoome une fois.
+                            if (checked && win.width < 600 && backend.zoom === 1.0)
+                                backend.zoom = 0.67;
+                            if (!checked && backend.zoom === 0.67)
+                                backend.zoom = 1.0;
+                            web.url = backend.convertUrl(web.url);
+                        }
+                    }
+                    Menu {
+                        title: "Zoom (" + Math.round(backend.zoom * 100) + " %)"
+                        Repeater {
+                            model: [0.5, 0.67, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5]
+                            MenuItem {
+                                text: Math.round(modelData * 100) + " %"
+                                checkable: true
+                                checked: Math.abs(backend.zoom - modelData) < 0.001
+                                onTriggered: backend.zoom = modelData
+                            }
+                        }
+                    }
+                    MenuSeparator {}
                     MenuItem {
                         text: "Mode immersif (masquer les barres)"
                         checkable: true

@@ -14,6 +14,7 @@
 #include <QQuickWebEngineProfile>
 #include <QScreen>
 #include <QStandardPaths>
+#include <QRegularExpression>
 #include <QUrlQuery>
 
 #include <signal.h>
@@ -172,6 +173,81 @@ void Backend::setRotateScreen(bool v)
     if (v == rotateScreen()) return;
     m_settings.setValue(QStringLiteral("rotateScreen"), v);
     emit settingsChanged();
+}
+
+bool Backend::desktopDevice() const
+{
+#if defined(Q_PROCESSOR_X86)
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool Backend::desktopMode() const
+{
+    return m_settings.value(QStringLiteral("desktopMode"), desktopDevice()).toBool();
+}
+
+void Backend::setDesktopMode(bool v)
+{
+    if (v == desktopMode()) return;
+    m_settings.setValue(QStringLiteral("desktopMode"), v);
+    applyUserAgent();
+    emit settingsChanged();
+}
+
+double Backend::zoom() const
+{
+    return m_settings.value(QStringLiteral("zoom"), 1.0).toDouble();
+}
+
+void Backend::setZoom(double v)
+{
+    v = qBound(0.25, v, 3.0);
+    if (qFuzzyCompare(v, zoom())) return;
+    m_settings.setValue(QStringLiteral("zoom"), v);
+    emit settingsChanged();
+}
+
+QUrl Backend::homeUrl() const
+{
+    return QUrl(desktopMode() ? QStringLiteral("https://www.youtube.com/")
+                              : QStringLiteral("https://m.youtube.com/"));
+}
+
+QUrl Backend::convertUrl(const QUrl &url) const
+{
+    QUrl u(url);
+    const QString host = u.host();
+    if (desktopMode() && (host == QLatin1String("m.youtube.com") || host == QLatin1String("youtube.com")))
+        u.setHost(QStringLiteral("www.youtube.com"));
+    else if (!desktopMode() && (host == QLatin1String("www.youtube.com") || host == QLatin1String("youtube.com")))
+        u.setHost(QStringLiteral("m.youtube.com"));
+    return u;
+}
+
+void Backend::setDefaultUserAgent(const QString &ua)
+{
+    m_defaultUserAgent = ua;
+    applyUserAgent();
+}
+
+void Backend::applyUserAgent()
+{
+    // Réutilise la vraie version de Chromium embarquée.
+    QString major = QStringLiteral("140");
+    const auto m = QRegularExpression(QStringLiteral("Chrome/(\\d+)")).match(m_defaultUserAgent);
+    if (m.hasMatch())
+        major = m.captured(1);
+    const QString ua = desktopMode()
+        // Chrome pour Linux : YouTube sert www.youtube.com.
+        ? QStringLiteral("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                         "(KHTML, like Gecko) Chrome/%1.0.0.0 Safari/537.36").arg(major)
+        // Chrome pour Android : YouTube sert m.youtube.com (tactile, plus léger).
+        : QStringLiteral("Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 "
+                         "(KHTML, like Gecko) Chrome/%1.0.0.0 Mobile Safari/537.36").arg(major);
+    m_profile->setHttpUserAgent(ua);
 }
 
 bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
