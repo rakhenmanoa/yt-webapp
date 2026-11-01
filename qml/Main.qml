@@ -16,11 +16,13 @@ ApplicationWindow {
     // par la poignée.
     property bool barPeek: false
 
-    // Paysage auto par rotation du contenu : seulement en rendu logiciel. Avec
-    // la composition GPU de Chromium, toute rotation de la vue décale la vidéo ;
-    // on tourne alors l'écran du système (kscreen-doctor).
+    // Paysage auto : par défaut, le contenu de l'appli pivote ; en option,
+    // l'écran du système tourne (kscreen-doctor).
     property bool wantLandscape: false
     readonly property bool rotated: wantLandscape && web.isFullScreen && win.height > win.width
+    // La page doit aussi « voir » une orientation paysage (voir inject.js).
+    onRotatedChanged: web.runJavaScript("window.__ytwSetLandscape && window.__ytwSetLandscape("
+                                        + rotated + "," + backend.landscapeFlip + ");")
     readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
     readonly property string videoSizeJs:
@@ -174,7 +176,9 @@ ApplicationWindow {
                     web.runJavaScript(win.videoSizeJs, function (size) {
                         if (!size || size[0] <= size[1])
                             return;
-                        if (backend.softwareCompositingActive) {
+                        // Par défaut : rotation du contenu (+ orientation paysage
+                        // annoncée à la page). En secours : écran du système.
+                        if (!backend.rotateScreen || !backend.screenRotationAvailable) {
                             win.wantLandscape = true;
                             return;
                         }
@@ -330,6 +334,14 @@ ApplicationWindow {
                         checkable: true
                         checked: backend.autoLandscape
                         onToggled: backend.autoLandscape = checked
+                    }
+                    MenuItem {
+                        text: "Tourner l'écran du système"
+                        visible: backend.autoLandscape && backend.screenRotationAvailable
+                        height: visible ? implicitHeight : 0
+                        checkable: true
+                        checked: backend.rotateScreen
+                        onToggled: backend.rotateScreen = checked
                     }
                     MenuItem {
                         text: "Inverser le sens du paysage"

@@ -90,7 +90,54 @@
         }
     }
 
-    // --- 4. Intégration Plasma (MPRIS) ---------------------------------------
+    // --- 4. Orientation cohérente pendant le paysage auto -------------------
+    // Quand l'appli fait pivoter sa vue, la page voit des dimensions paysage
+    // mais QtWebEngine lui annonce toujours une orientation portrait
+    // (screen.orientation = portrait-primary). Le lecteur YouTube, qui se fie
+    // à l'orientation, calcule alors une vidéo petite et décalée. L'appli
+    // appelle __ytwSetLandscape(true/false) pour forcer une orientation
+    // paysage le temps de la rotation.
+    if (window.top === window) {
+        let forced = null;
+        const so = screen.orientation;
+        if (so) {
+            const proto = Object.getPrototypeOf(so);
+            const dType = Object.getOwnPropertyDescriptor(proto, 'type');
+            const dAngle = Object.getOwnPropertyDescriptor(proto, 'angle');
+            if (dType && dAngle) {
+                Object.defineProperty(proto, 'type', {
+                    configurable: true,
+                    get() { return forced ? forced.type : dType.get.call(this); },
+                });
+                Object.defineProperty(proto, 'angle', {
+                    configurable: true,
+                    get() { return forced ? forced.angle : dAngle.get.call(this); },
+                });
+            }
+        }
+        const hadOrientation = 'orientation' in window;
+        const origOrientation = hadOrientation ? window.orientation : undefined;
+        try {
+            Object.defineProperty(window, 'orientation', {
+                configurable: true,
+                get() { return forced ? forced.legacy : origOrientation; },
+            });
+        } catch (e) { /* ignoré */ }
+
+        window.__ytwSetLandscape = (on, flip) => {
+            forced = on
+                ? (flip ? { type: 'landscape-secondary', angle: 270, legacy: -90 }
+                        : { type: 'landscape-primary', angle: 90, legacy: 90 })
+                : null;
+            try { if (so) so.dispatchEvent(new Event('change')); } catch (e) { /* ignoré */ }
+            window.dispatchEvent(new Event('orientationchange'));
+            window.dispatchEvent(new Event('resize'));
+            // Certains lecteurs recalculent au prochain rafraîchissement.
+            setTimeout(() => window.dispatchEvent(new Event('resize')), 300);
+        };
+    }
+
+    // --- 5. Intégration Plasma (MPRIS) ---------------------------------------
     // Même principe que Plasma Browser Integration : on écoute la Media Session
     // de YouTube et l'élément <video> actif, et on transmet l'état à l'appli.
     if (cfg.mpris && window.top === window) {

@@ -22,6 +22,7 @@ class Backend : public QObject
     Q_PROPERTY(bool autoLandscape READ autoLandscape WRITE setAutoLandscape NOTIFY settingsChanged)
     Q_PROPERTY(bool landscapeFlip READ landscapeFlip WRITE setLandscapeFlip NOTIFY settingsChanged)
     Q_PROPERTY(bool screenRotationAvailable READ screenRotationAvailable CONSTANT)
+    Q_PROPERTY(bool rotateScreen READ rotateScreen WRITE setRotateScreen NOTIFY settingsChanged)
     Q_PROPERTY(bool softwareCompositing READ softwareCompositing WRITE setSoftwareCompositing NOTIFY settingsChanged)
     Q_PROPERTY(bool softwareCompositingActive READ softwareCompositingActive CONSTANT)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
@@ -56,6 +57,8 @@ public:
     bool landscapeFlip() const;
     void setLandscapeFlip(bool v);
     bool screenRotationAvailable() const { return !m_kscreenDoctor.isEmpty(); }
+    bool rotateScreen() const;
+    void setRotateScreen(bool v);
 
     // Paysage auto : rotation réelle de l'écran (kscreen-doctor), le temps
     // du plein écran. Toute rotation de la vue (Qt ou CSS) décale la vidéo.

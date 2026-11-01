@@ -165,6 +165,15 @@ void Backend::restoreScreenRotation()
     m_rotatedOutput.clear();
 }
 
+bool Backend::rotateScreen() const { return m_settings.value(QStringLiteral("rotateScreen"), false).toBool(); }
+
+void Backend::setRotateScreen(bool v)
+{
+    if (v == rotateScreen()) return;
+    m_settings.setValue(QStringLiteral("rotateScreen"), v);
+    emit settingsChanged();
+}
+
 bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
 
 void Backend::setPipMode(bool v)
