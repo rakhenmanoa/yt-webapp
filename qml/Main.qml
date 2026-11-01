@@ -17,6 +17,14 @@ ApplicationWindow {
     property bool barPeek: false
     readonly property bool barShown: !web.isFullScreen && (!backend.immersive || barPeek)
 
+    readonly property string videoSizeJs:
+        "(function () {" +
+        "  var f = document.fullscreenElement || document.webkitFullscreenElement;" +
+        "  var v = f && (f.tagName === 'VIDEO' ? f : f.querySelector('video'));" +
+        "  v = v || document.querySelector('video');" +
+        "  return v ? [v.videoWidth, v.videoHeight] : null;" +
+        "})()"
+
     readonly property string pauseJs:
         "document.querySelectorAll('video').forEach(function (v) { v.pause(); });"
 
@@ -71,6 +79,7 @@ ApplicationWindow {
     // Avec la lecture en arrière-plan, le son continue et se pilote depuis
     // Plasma (écran de verrouillage, widget multimédia).
     onClosing: function (close) {
+        backend.restoreScreenRotation();
         if (!backend.keepInMemory || !backend.backgroundPlay)
             web.runJavaScript(pauseJs);
         if (backend.keepInMemory) {
@@ -111,8 +120,8 @@ ApplicationWindow {
 
     WebEngineView {
         id: web
-        // Le paysage auto se fait dans la page (CSS, voir inject.js) : la vue
-        // Qt ne pivote jamais, ce qui décalait la vidéo de Chromium.
+        // La vue ne pivote jamais : toute transformation (Qt ou CSS) décale la
+        // vidéo de Chromium. Le paysage auto tourne l'écran du système.
         anchors.fill: parent
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
@@ -154,7 +163,18 @@ ApplicationWindow {
             request.accept();
             if (request.toggleOn) {
                 win.showFullScreen();
+                if (backend.autoLandscape && win.height > win.width) {
+                    web.runJavaScript(win.videoSizeJs, function (size) {
+                        if (!size || size[0] <= size[1])
+                            return;
+                        if (!backend.rotateScreenLandscape())
+                            win.toast(backend.screenRotationAvailable
+                                      ? "Rotation de l'écran impossible."
+                                      : "kscreen-doctor introuvable : paysage auto indisponible.");
+                    });
+                }
             } else {
+                backend.restoreScreenRotation();
                 if (!backend.immersive)
                     win.showNormal();
             }
@@ -296,11 +316,7 @@ ApplicationWindow {
                         text: "Paysage auto en plein écran"
                         checkable: true
                         checked: backend.autoLandscape
-                        onToggled: {
-                            backend.autoLandscape = checked;
-                            win.applyScripts();
-                            web.reload();
-                        }
+                        onToggled: backend.autoLandscape = checked
                     }
                     MenuItem {
                         text: "Inverser le sens du paysage"
@@ -308,11 +324,7 @@ ApplicationWindow {
                         height: visible ? implicitHeight : 0
                         checkable: true
                         checked: backend.landscapeFlip
-                        onToggled: {
-                            backend.landscapeFlip = checked;
-                            win.applyScripts();
-                            web.reload();
-                        }
+                        onToggled: backend.landscapeFlip = checked
                     }
                     MenuItem {
                         text: "Lecture en arrière-plan"

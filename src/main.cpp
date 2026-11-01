@@ -22,8 +22,8 @@
 
 namespace {
 
-// SIGTERM/SIGINT/SIGHUP (pkill, fin de session) → sortie propre de Qt et
-// de Chromium (profil et cache bien enregistrés).
+// SIGTERM/SIGINT/SIGHUP (pkill, fin de session) → sortie propre : profil
+// enregistré, et écran remis comme avant si le paysage auto l'a tourné.
 int g_sigFd[2] = {-1, -1};
 
 void onSignal(int)
