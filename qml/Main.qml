@@ -129,6 +129,11 @@ ApplicationWindow {
         width: win.rotated ? parent.height : parent.width
         height: win.rotated ? parent.width : parent.height
         rotation: win.rotated ? (backend.landscapeFlip ? -90 : 90) : 0
+        // En rendu matériel, la vidéo peut être une couche à part qui ne suit
+        // pas la rotation (vidéo décalée, commandes bien placées). On compose
+        // donc toute la page dans une texture, puis on fait pivoter celle-ci
+        // d'un bloc. Seulement pendant la rotation (coût : une copie GPU).
+        layer.enabled: win.rotated
         profile: ytProfile
         settings.fullScreenSupportEnabled: true
         settings.playbackRequiresUserGesture: false
