@@ -9,7 +9,7 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Gui Network Quick WebEngineCore WebEngineQuick)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core DBus Gui Network Quick WebEngineCore WebEngineQuick)
 
 add_executable(yt-webapp
   src/main.cpp
@@ -21,7 +21,7 @@ add_executable(yt-webapp
 )
 
 target_link_libraries(yt-webapp PRIVATE
-  Qt6::Core Qt6::Gui Qt6::Network Qt6::Quick Qt6::WebEngineCore Qt6::WebEngineQuick)
+  Qt6::Core Qt6::DBus Qt6::Gui Qt6::Network Qt6::Quick Qt6::WebEngineCore Qt6::WebEngineQuick)
 
 include(GNUInstallDirs)
 install(TARGETS yt-webapp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

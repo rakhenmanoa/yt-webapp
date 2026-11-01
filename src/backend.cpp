@@ -2,14 +2,27 @@
 #include "interceptor.h"
 
 #include <QCoreApplication>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDesktopServices>
 #include <QFile>
+#include <QGuiApplication>
 #include <QProcess>
 #include <QQuickWebEngineProfile>
+#include <QScreen>
 #include <QStandardPaths>
 #include <QUrlQuery>
 
+#include <signal.h>
+
 namespace {
+
+// Incrustation : mpv dans une petite fenêtre flottante, gardée au-dessus des
+// autres applis par une règle KWin (Wayland ne laisse pas une appli le faire
+// elle-même). La règle reconnaît la fenêtre au préfixe de son titre.
+const QLatin1String kPipRuleGroup("yt-webapp-pip");
+const QLatin1String kPipTitleTag("[PiP]");
+const int kPipRuleVersion = 1;
 
 bool hostIs(const QString &host, QLatin1String domain)
 {
@@ -49,6 +62,16 @@ bool Backend::blockAds() const { return m_settings.value(QStringLiteral("blockAd
 bool Backend::autoMpv() const { return m_settings.value(QStringLiteral("autoMpv"), false).toBool(); }
 bool Backend::keepInMemory() const { return m_settings.value(QStringLiteral("keepInMemory"), true).toBool(); }
 int Backend::mpvHeight() const { return m_settings.value(QStringLiteral("mpvHeight"), 720).toInt(); }
+bool Backend::pipMode() const { return m_settings.value(QStringLiteral("pipMode"), false).toBool(); }
+
+void Backend::setPipMode(bool v)
+{
+    if (v == pipMode()) return;
+    m_settings.setValue(QStringLiteral("pipMode"), v);
+    if (v && !ensurePipRule())
+        emit message(tr("KWin introuvable : la fenêtre ne restera pas au-dessus."));
+    emit settingsChanged();
+}
 
 void Backend::setForceH264(bool v)
 {
@@ -154,16 +177,123 @@ bool Backend::openInMpv(const QUrl &url)
         "bestvideo[height<=?%1][vcodec^=avc1]+bestaudio[ext=m4a]/"
         "best[height<=?%1][vcodec^=avc1]/bestvideo[height<=?%1]+bestaudio/best").arg(h);
 
-    const QStringList args = {
+    QStringList args = {
         QStringLiteral("--force-window=immediate"),
-        QStringLiteral("--fs"),
         QStringLiteral("--hwdec=auto-safe"),
         QStringLiteral("--ytdl-format=") + fmt,
-        url.toString(),
     };
-    const bool ok = QProcess::startDetached(QStringLiteral("mpv"), args);
-    emit message(ok ? tr("Ouverture dans mpv…") : tr("Impossible de lancer mpv."));
+
+    const bool pip = pipMode();
+    if (pip) {
+        ensurePipRule();
+        // Une seule incrustation à la fois.
+        if (m_pipPid > 0)
+            ::kill(static_cast<pid_t>(m_pipPid), SIGTERM);
+        args << QStringLiteral("--title=") + kPipTitleTag + QStringLiteral(" ${media-title}")
+             << QStringLiteral("--ontop")          // X11 ; sous Wayland c'est la règle KWin
+             << QStringLiteral("--no-border")
+             << QStringLiteral("--autofit=55%")
+             << QStringLiteral("--keep-open=no");
+    } else {
+        args << QStringLiteral("--fs");
+    }
+    args << url.toString();
+
+    qint64 pid = 0;
+    const bool ok = QProcess::startDetached(QStringLiteral("mpv"), args, QString(), &pid);
+    if (ok && pip)
+        m_pipPid = pid;
+    emit message(!ok ? tr("Impossible de lancer mpv.")
+                     : pip ? tr("Incrustation…") : tr("Ouverture dans mpv…"));
     return ok;
+}
+
+bool Backend::ensurePipRule(bool force)
+{
+    if (!force && m_settings.value(QStringLiteral("pipRuleVersion")).toInt() >= kPipRuleVersion)
+        return true;
+
+    const QString kw = QStandardPaths::findExecutable(QStringLiteral("kwriteconfig6"));
+    const QString kr = QStandardPaths::findExecutable(QStringLiteral("kreadconfig6"));
+    if (kw.isEmpty() || kr.isEmpty())
+        return false;
+
+    // Petite fenêtre 16:9 en bas à droite, au-dessus de la barre de navigation.
+    QRect g(0, 0, 400, 860);
+    if (QScreen *scr = QGuiApplication::primaryScreen())
+        g = scr->availableGeometry();
+    const int w = qRound(g.width() * 0.55);
+    const int h = qRound(w * 9.0 / 16.0);
+    const int x = g.x() + g.width() - w - 12;
+    const int y = g.y() + g.height() - h - 96;
+
+    auto set = [&](const QString &key, const QString &value, bool isBool = false) {
+        QStringList a = {QStringLiteral("--file"), QStringLiteral("kwinrulesrc"),
+                         QStringLiteral("--group"), kPipRuleGroup,
+                         QStringLiteral("--key"), key};
+        if (isBool)
+            a << QStringLiteral("--type") << QStringLiteral("bool");
+        a << value;
+        QProcess::execute(kw, a);
+    };
+    const QString T = QStringLiteral("true"), F = QStringLiteral("false");
+    // Valeurs des règles KWin : 1 = exact, 2 = sous-chaîne (correspondance) ;
+    // 2 = Forcer, 3 = Appliquer au début (actions).
+    set(QStringLiteral("Description"), QStringLiteral("yt-webapp : incrustation mpv"));
+    set(QStringLiteral("wmclass"), QStringLiteral("mpv"));
+    set(QStringLiteral("wmclassmatch"), QStringLiteral("1"));
+    set(QStringLiteral("wmclasscomplete"), F, true);
+    set(QStringLiteral("title"), kPipTitleTag);
+    set(QStringLiteral("titlematch"), QStringLiteral("2"));
+    set(QStringLiteral("above"), T, true);
+    set(QStringLiteral("aboverule"), QStringLiteral("2"));
+    set(QStringLiteral("noborder"), T, true);
+    set(QStringLiteral("noborderrule"), QStringLiteral("2"));
+    set(QStringLiteral("fullscreen"), F, true);
+    set(QStringLiteral("fullscreenrule"), QStringLiteral("2"));
+    set(QStringLiteral("maximizehoriz"), F, true);
+    set(QStringLiteral("maximizehorizrule"), QStringLiteral("2"));
+    set(QStringLiteral("maximizevert"), F, true);
+    set(QStringLiteral("maximizevertrule"), QStringLiteral("2"));
+    set(QStringLiteral("position"), QStringLiteral("%1,%2").arg(x).arg(y));
+    set(QStringLiteral("positionrule"), QStringLiteral("3"));
+    set(QStringLiteral("size"), QStringLiteral("%1,%2").arg(w).arg(h));
+    set(QStringLiteral("sizerule"), QStringLiteral("3"));
+
+    // Ajoute notre règle à la liste générale sans toucher aux autres.
+    QProcess rd;
+    rd.start(kr, {QStringLiteral("--file"), QStringLiteral("kwinrulesrc"),
+                  QStringLiteral("--group"), QStringLiteral("General"),
+                  QStringLiteral("--key"), QStringLiteral("rules")});
+    rd.waitForFinished(3000);
+    QStringList rules = QString::fromUtf8(rd.readAllStandardOutput()).trimmed()
+                            .split(QLatin1Char(','), Qt::SkipEmptyParts);
+    if (!rules.contains(kPipRuleGroup)) {
+        rules << kPipRuleGroup;
+        QProcess::execute(kw, {QStringLiteral("--file"), QStringLiteral("kwinrulesrc"),
+                               QStringLiteral("--group"), QStringLiteral("General"),
+                               QStringLiteral("--key"), QStringLiteral("rules"),
+                               rules.join(QLatin1Char(','))});
+    }
+    QProcess::execute(kw, {QStringLiteral("--file"), QStringLiteral("kwinrulesrc"),
+                           QStringLiteral("--group"), QStringLiteral("General"),
+                           QStringLiteral("--key"), QStringLiteral("count"),
+                           QString::number(rules.size())});
+
+    QDBusConnection::sessionBus().send(QDBusMessage::createMethodCall(
+        QStringLiteral("org.kde.KWin"), QStringLiteral("/KWin"),
+        QStringLiteral("org.kde.KWin"), QStringLiteral("reconfigure")));
+
+    m_settings.setValue(QStringLiteral("pipRuleVersion"), kPipRuleVersion);
+    return true;
+}
+
+void Backend::resetPipPosition()
+{
+    if (ensurePipRule(true))
+        emit message(tr("Position de l'incrustation réinitialisée."));
+    else
+        emit message(tr("KWin introuvable."));
 }
 
 void Backend::openExternally(const QUrl &url)

@@ -11,6 +11,7 @@ YouTube en appli dédiée, sur QtWebEngine (Chromium), pensée pour Plasma Mobil
 - **H.264 forcé.** YouTube sert du H.264 au lieu du VP9 ou de l'AV1. Le forçage se désactive tout seul si ce QtWebEngine ne lit pas le H.264.
 - **YouTube seulement.** Les liens externes s'ouvrent dans le navigateur par défaut. La connexion Google reste possible.
 - **Bouton « mpv »** sur les vidéos, plus une option « Toujours lire dans mpv » : la page ne télécharge alors plus la vidéo et tout part dans mpv.
+- **Incrustation.** Avec l'option du menu « Incrustation (mpv flottant) », le bouton devient « Incruster » : la vidéo part dans une petite fenêtre mpv sans bordure, gardée au-dessus des autres applis, en bas à droite. Tu peux continuer à naviguer pendant ce temps.
 - **Réglages Chromium par défaut** : 4 threads de peinture, moins de pauses du ramasse-miettes V8, services inutiles coupés.
 
 ## Installation sur le téléphone (Arch Linux ARM)
@@ -34,6 +35,20 @@ L'appli se lance cachée à l'ouverture de session et charge YouTube en arrière
     mkdir -p ~/.config/autostart
 
     cp data/yt-webapp-autostart.desktop ~/.config/autostart/
+
+## Incrustation : comment ça marche
+
+QtWebEngine désactive l'incrustation intégrée de Chromium (Picture-in-Picture), donc l'appli passe par mpv. Sous Wayland, une fenêtre ne peut pas se placer seule au-dessus des autres. Au premier usage, l'appli ajoute donc une règle KWin nommée `yt-webapp-pip` dans `~/.config/kwinrulesrc`, sans toucher à tes autres règles. Cette règle :
+
+- repère la fenêtre mpv à son titre, qui commence par `[PiP]` ;
+- la garde au-dessus des autres fenêtres, sans bordure ni maximisation ;
+- lui donne au départ 55 % de la largeur de l'écran, en bas à droite.
+
+Dans mpv, un double tap passe en plein écran. Pour fermer l'incrustation, ferme sa fenêtre depuis le sélecteur de tâches.
+
+Si la position ne convient plus (rotation, changement d'échelle), utilise menu → « Replacer l'incrustation ». Pour ajuster la règle à la main, ou la supprimer : Configuration du système → Gestion des fenêtres → Règles de fenêtres → « yt-webapp : incrustation mpv ».
+
+Plasma Mobile maximise normalement toutes les fenêtres. La règle force la fenêtre à ne pas l'être, mais selon la version de Plasma Mobile, il faudra peut-être activer le mode « convergence » (fenêtres flottantes) pour que l'incrustation reste petite.
 
 ## Réglages de performance
 

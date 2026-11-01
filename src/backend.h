@@ -16,6 +16,7 @@ class Backend : public QObject
     Q_PROPERTY(bool autoMpv READ autoMpv WRITE setAutoMpv NOTIFY settingsChanged)
     Q_PROPERTY(bool keepInMemory READ keepInMemory WRITE setKeepInMemory NOTIFY settingsChanged)
     Q_PROPERTY(int mpvHeight READ mpvHeight WRITE setMpvHeight NOTIFY settingsChanged)
+    Q_PROPERTY(bool pipMode READ pipMode WRITE setPipMode NOTIFY settingsChanged)
     Q_PROPERTY(bool mpvAvailable READ mpvAvailable CONSTANT)
     Q_PROPERTY(bool startHidden READ startHidden CONSTANT)
     Q_PROPERTY(QUrl startUrl READ startUrl CONSTANT)
@@ -36,6 +37,8 @@ public:
     void setKeepInMemory(bool v);
     int mpvHeight() const;
     void setMpvHeight(int v);
+    bool pipMode() const;
+    void setPipMode(bool v);
 
     bool mpvAvailable() const { return m_mpvAvailable; }
     bool startHidden() const { return m_startHidden; }
@@ -46,6 +49,7 @@ public:
     Q_INVOKABLE bool isAllowedUrl(const QUrl &url) const;
     Q_INVOKABLE bool isVideoUrl(const QUrl &url) const;
     Q_INVOKABLE bool openInMpv(const QUrl &url);
+    Q_INVOKABLE void resetPipPosition();
     Q_INVOKABLE void openExternally(const QUrl &url);
     Q_INVOKABLE void clearCache();
     Q_INVOKABLE void quit();
@@ -60,6 +64,7 @@ signals:
 
 private:
     void applyToInterceptor();
+    bool ensurePipRule(bool force = false);
 
     Interceptor *m_interceptor;
     QQuickWebEngineProfile *m_profile;
@@ -68,4 +73,5 @@ private:
     bool m_mpvAvailable = false;
     bool m_startHidden = false;
     QUrl m_startUrl;
+    qint64 m_pipPid = 0;
 };

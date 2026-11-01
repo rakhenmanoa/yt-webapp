@@ -104,7 +104,7 @@ ApplicationWindow {
 
         // YouTube navigue sans recharger la page : on suit l'URL.
         onUrlChanged: {
-            if (backend.autoMpv && backend.mpvAvailable && win.onVideo) {
+            if (backend.autoMpv && backend.mpvAvailable && backend.isVideoUrl(web.url)) {
                 var u = web.url.toString();
                 if (u !== win.lastAutoMpvUrl) {
                     win.lastAutoMpvUrl = u;
@@ -173,8 +173,8 @@ ApplicationWindow {
             ToolButton {
                 Layout.fillWidth: true
                 Layout.preferredHeight: 52
-                icon.name: "media-playback-start"
-                text: "mpv"
+                icon.name: backend.pipMode ? "view-restore" : "media-playback-start"
+                text: backend.pipMode ? "Incruster" : "mpv"
                 display: AbstractButton.TextUnderIcon
                 visible: win.onVideo && backend.mpvAvailable
                 onClicked: win.playInMpv(web.url)
@@ -217,6 +217,19 @@ ApplicationWindow {
                         enabled: backend.mpvAvailable
                         checked: backend.autoMpv
                         onToggled: backend.autoMpv = checked
+                    }
+                    MenuItem {
+                        text: "Incrustation (mpv flottant)"
+                        checkable: true
+                        enabled: backend.mpvAvailable
+                        checked: backend.pipMode
+                        onToggled: backend.pipMode = checked
+                    }
+                    MenuItem {
+                        text: "Replacer l'incrustation"
+                        visible: backend.pipMode
+                        height: visible ? implicitHeight : 0
+                        onTriggered: backend.resetPipPosition()
                     }
                     MenuItem {
                         text: "Rester en mémoire"
