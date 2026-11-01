@@ -18,7 +18,7 @@ YouTube en appli dédiée, sur QtWebEngine (Chromium), pensée pour Plasma Mobil
 - **Paysage auto en plein écran.** Quand une vidéo paysage passe en plein écran alors que le téléphone est en portrait, le contenu de l'appli pivote de 90°. La page reçoit aussi une orientation paysage cohérente, puisque QtWebEngine annonce sinon « portrait ». La vidéo est forcée en CSS à remplir l'écran pivoté : sans cela, le lecteur de m.youtube.com lui garde sa taille et sa position d'avant le plein écran. Une ligne `[yt-webapp diag]` s'affiche dans le terminal à chaque rotation, pour le diagnostic. Les vidéos verticales (Shorts) ne pivotent pas. Si le sens ne te convient pas : menu → « Inverser le sens du paysage ».
   - En secours, l'option « Tourner l'écran du système » fait tourner l'écran réel via `kscreen-doctor` (paquet `libkscreen`) le temps du plein écran. Il est restauré à la sortie, à la fermeture de l'appli, et même si elle est arrêtée avec `pkill`.
 - **Rendu logiciel (anti-image verte).** Sur le téléphone, la composition par la carte graphique (GPU) de Chromium affiche une image verte au démarrage de chaque vidéo. Cette option du menu fait composer la page par le processeur, ce qui supprime le vert mais demande plus de calcul. Elle s'applique au redémarrage, que l'appli propose aussitôt.
-- **Version ordinateur.** Menu → « Version ordinateur » : l'appli s'annonce comme Chrome pour Linux et charge www.youtube.com au lieu de m.youtube.com, sur la même page. Sur un écran étroit, le zoom passe automatiquement à 67 % ; il reste réglable dans menu → « Zoom ». C'est le mode par défaut sur PC (x86_64), avec une fenêtre de 1200×800.
+- **Version ordinateur.** Menu → « Version ordinateur » : l'appli s'annonce comme Chrome pour Linux et charge www.youtube.com au lieu de m.youtube.com, sur la même page. Sur un écran étroit, le zoom passe automatiquement à 67 % ; il reste réglable dans menu → « Zoom ». C'est le mode par défaut sur PC (x86_64), où la fenêtre s'ouvre maximisée, à la taille de l'écran.
 - **Réglages Chromium par défaut** : 4 threads de peinture, moins de pauses du ramasse-miettes V8, services inutiles coupés.
 
 ## Installation sur le téléphone (Arch Linux ARM)
@@ -53,7 +53,7 @@ Puis quitte l'ancienne instance (menu → Quitter), sinon la relance réaffiche 
 
 ## Installation sur PC (x86_64)
 
-Le code est le même que sur le téléphone. Sur PC, l'appli démarre en version ordinateur, dans une fenêtre de 1200×800. Il faut Qt 6.4 ou plus récent avec QtWebEngine.
+Le code est le même que sur le téléphone. Sur PC, l'appli démarre en version ordinateur, fenêtre maximisée à la taille de l'écran. Il faut Qt 6.4 ou plus récent avec QtWebEngine.
 
 **Arch Linux**, avec le même paquet que sur le téléphone :
 
