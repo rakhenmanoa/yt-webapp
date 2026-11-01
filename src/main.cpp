@@ -1,0 +1,127 @@
+// yt-webapp — YouTube en appli dédiée, sur QtWebEngine, pensé pour Plasma Mobile.
+
+#include "backend.h"
+#include "interceptor.h"
+
+#include <QCommandLineParser>
+#include <QGuiApplication>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickWebEngineProfile>
+#include <QRegularExpression>
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+
+namespace {
+
+// Réglages Chromium par défaut, remplaçables via QTWEBENGINE_CHROMIUM_FLAGS.
+//  --num-raster-threads=4             : plus de cœurs pour peindre la page (défilement)
+//  --js-flags=--max-semi-space-size=32 : moins de pauses du ramasse-miettes V8
+//  --disable-features=...              : services inutiles pour une appli YouTube
+const char kDefaultFlags[] =
+    "--num-raster-threads=4 "
+    "--js-flags=--max-semi-space-size=32 "
+    "--disable-features=Translate,MediaRouter,OptimizationHints";
+
+QString socketName()
+{
+    return QStringLiteral("yt-webapp-") + qEnvironmentVariable("USER", QStringLiteral("user"));
+}
+
+// Si une instance tourne déjà, on lui demande de s'afficher et on s'arrête.
+bool forwardToRunningInstance(const QUrl &url)
+{
+    QLocalSocket sock;
+    sock.connectToServer(socketName());
+    if (!sock.waitForConnected(300))
+        return false;
+    sock.write((QStringLiteral("show ") + url.toString() + QLatin1Char('\n')).toUtf8());
+    sock.waitForBytesWritten(300);
+    sock.disconnectFromServer();
+    return true;
+}
+
+QString mobileUserAgent(const QString &defaultUa)
+{
+    // Réutilise la vraie version de Chromium embarquée, avec un UA Android
+    // pour que YouTube serve m.youtube.com (interface tactile, plus légère).
+    QString major = QStringLiteral("140");
+    const auto m = QRegularExpression(QStringLiteral("Chrome/(\\d+)")).match(defaultUa);
+    if (m.hasMatch())
+        major = m.captured(1);
+    return QStringLiteral("Mozilla/5.0 (Linux; Android 14; K) AppleWebKit/537.36 "
+                          "(KHTML, like Gecko) Chrome/%1.0.0.0 Mobile Safari/537.36").arg(major);
+}
+
+} // namespace
+
+int main(int argc, char *argv[])
+{
+    if (qEnvironmentVariableIsEmpty("QTWEBENGINE_CHROMIUM_FLAGS"))
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", kDefaultFlags);
+
+    QtWebEngineQuick::initialize();
+
+    QGuiApplication app(argc, argv);
+    app.setApplicationName(QStringLiteral("yt-webapp"));
+    app.setApplicationDisplayName(QStringLiteral("YouTube"));
+    app.setDesktopFileName(QStringLiteral("yt-webapp"));
+    app.setQuitOnLastWindowClosed(false);
+
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("YouTube en appli dédiée (QtWebEngine)"));
+    parser.addHelpOption();
+    QCommandLineOption bgOpt(QStringLiteral("background"),
+                             QStringLiteral("Démarre caché et précharge YouTube."));
+    parser.addOption(bgOpt);
+    parser.addPositionalArgument(QStringLiteral("url"), QStringLiteral("Lien YouTube à ouvrir."));
+    parser.process(app);
+
+    const QStringList pos = parser.positionalArguments();
+    const QUrl startUrl = pos.isEmpty() ? QUrl() : QUrl::fromUserInput(pos.first());
+
+    if (forwardToRunningInstance(startUrl))
+        return 0;
+
+    QLocalServer::removeServer(socketName());
+    QLocalServer server;
+    server.listen(socketName());
+
+    // Profil persistant : cookies (connexion au compte), cache HTTP et cache de
+    // code V8 sur disque. Le profil par défaut de Qt 6 est privé et perd tout
+    // à la fermeture.
+    auto *profile = new QQuickWebEngineProfile(&app);
+    profile->setStorageName(QStringLiteral("youtube"));
+    profile->setOffTheRecord(false);
+    profile->setHttpCacheType(QQuickWebEngineProfile::DiskHttpCache);
+    profile->setHttpCacheMaximumSize(512 * 1024 * 1024);
+    profile->setPersistentCookiesPolicy(QQuickWebEngineProfile::ForcePersistentCookies);
+    profile->setHttpUserAgent(mobileUserAgent(profile->httpUserAgent()));
+
+    auto *interceptor = new Interceptor(&app);
+    profile->setUrlRequestInterceptor(interceptor);
+
+    Backend backend(interceptor, profile, parser.isSet(bgOpt), startUrl);
+
+    QObject::connect(&server, &QLocalServer::newConnection, &app, [&] {
+        while (QLocalSocket *c = server.nextPendingConnection()) {
+            QObject::connect(c, &QLocalSocket::readyRead, c, [c, &backend] {
+                const QString line = QString::fromUtf8(c->readLine()).trimmed();
+                if (line.startsWith(QLatin1String("show")))
+                    backend.activate(QUrl(line.mid(4).trimmed()));
+                c->deleteLater();
+            });
+            QObject::connect(c, &QLocalSocket::disconnected, c, &QObject::deleteLater);
+        }
+    });
+
+    QQmlApplicationEngine engine;
+    engine.rootContext()->setContextProperty(QStringLiteral("backend"), &backend);
+    engine.rootContext()->setContextProperty(QStringLiteral("ytProfile"), profile);
+    QObject::connect(&engine, &QQmlApplicationEngine::objectCreationFailed, &app,
+                     [] { QCoreApplication::exit(1); }, Qt::QueuedConnection);
+    engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
+
+    return app.exec();
+}

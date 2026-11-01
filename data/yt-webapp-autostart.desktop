@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube (préchargement)
+Exec=yt-webapp --background
+Icon=yt-webapp
+Terminal=false
+NoDisplay=true
+X-KDE-autostart-phase=2

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube
+GenericName=Lecteur vidéo web
+Comment=YouTube en appli dédiée (QtWebEngine)
+Exec=yt-webapp %u
+Icon=yt-webapp
+Terminal=false
+Categories=AudioVideo;Video;Network;
+MimeType=x-scheme-handler/vnd.youtube;
+StartupWMClass=yt-webapp
+X-KDE-FormFactor=desktop;tablet;handset;
